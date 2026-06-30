@@ -1,0 +1,275 @@
+import type { Persona, AIModel, NewPersona } from '../types';
+import { INDUSTRIES, SAMPLE_PROMPTS } from '../data';
+
+interface WizardProps {
+  step: number;
+  brand: string;
+  industry: string;
+  competitors: string[];
+  newCompetitor: string;
+  addingPersona: boolean;
+  newPersona: NewPersona;
+  personas: Persona[];
+  models: AIModel[];
+  onBrand: (v: string) => void;
+  onIndustry: (v: string) => void;
+  onRemoveCompetitor: (c: string) => void;
+  onNewCompetitor: (v: string) => void;
+  onAddCompetitor: () => void;
+  onTogglePersona: (id: string) => void;
+  onExpandPersona: (id: string) => void;
+  onOpenAddPersona: () => void;
+  onCloseAddPersona: () => void;
+  onNewPersonaField: (field: keyof NewPersona, val: string) => void;
+  onSaveCustomPersona: () => void;
+  onToggleModel: (id: string) => void;
+  onNextStep: () => void;
+  onPrevStep: () => void;
+  onGoHome: () => void;
+  onOpenHistory: () => void;
+  onOpenSettings: () => void;
+  onLaunch: () => void;
+}
+
+const STEP_LABELS = ['Brand setup', 'Personas', 'AI Models', 'Review'];
+
+function StepBar({ step }: { step: number }) {
+  const progress = ((step - 1) / (STEP_LABELS.length - 1)) * 100;
+
+  return (
+    <div className="relative flex justify-between max-w-[600px] mx-auto mb-[52px]">
+      <div className="absolute top-[17px] left-[17px] right-[17px] h-[2px] bg-[#E6E6E6]" />
+      <div
+        className="absolute top-[17px] left-[17px] h-[2px] bg-[#2D6AE0] transition-all duration-[350ms] ease-in-out"
+        style={{ width: `calc(${progress}% * (100% - 34px) / 100)` }}
+      />
+      {STEP_LABELS.map((label, i) => {
+        const n = i + 1;
+        const isDone = n < step;
+        const isActive = n === step;
+        return (
+          <div key={label} className="relative z-10 flex flex-col items-center gap-[9px] bg-[#FAFAFA] px-2.5">
+            {isDone && (
+              <div className="w-9 h-9 rounded-full bg-[#2D6AE0] text-white flex items-center justify-center text-[15px] font-bold">✓</div>
+            )}
+            {isActive && (
+              <div className="w-9 h-9 rounded-full bg-white border-2 border-[#2D6AE0] text-[#2D6AE0] flex items-center justify-center text-sm font-bold">{n}</div>
+            )}
+            {!isDone && !isActive && (
+              <div className="w-9 h-9 rounded-full bg-white border-2 border-[#E2E2E2] text-[#B0B0B0] flex items-center justify-center text-sm font-semibold">{n}</div>
+            )}
+            <span className="text-[12.5px] text-[#777] font-medium">{label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Step1({ brand, industry, competitors, newCompetitor, onBrand, onIndustry, onRemoveCompetitor, onNewCompetitor, onAddCompetitor, onGoHome, onNextStep }: Pick<WizardProps, 'brand' | 'industry' | 'competitors' | 'newCompetitor' | 'onBrand' | 'onIndustry' | 'onRemoveCompetitor' | 'onNewCompetitor' | 'onAddCompetitor' | 'onGoHome' | 'onNextStep'>) {
+  return (
+    <div className="animate-fadeUp">
+      <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">Here's what we understood</h2>
+      <p className="text-[15.5px] text-[#777] mb-8">Confirm the details below — you can edit anything before we continue.</p>
+
+      <div className="bg-white border border-[#ECECEC] rounded-[18px] p-7 flex flex-col gap-6">
+        <div className="flex gap-6 flex-wrap">
+          <div className="flex-1 min-w-[240px]">
+            <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">Brand / Product</label>
+            <input value={brand} onChange={e => onBrand(e.target.value)} className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[15px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
+          </div>
+          <div className="flex-1 min-w-[240px]">
+            <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">
+              Industry / Category <span className="text-[#2D6AE0] normal-case tracking-normal font-medium">· auto-detected</span>
+            </label>
+            <select value={industry} onChange={e => onIndustry(e.target.value)} className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[15px] text-[#222] bg-white cursor-pointer focus:border-[#2D6AE0] focus:outline-none transition-colors">
+              {INDUSTRIES.map(ind => <option key={ind} value={ind}>{ind}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[11px]">Competitors detected</label>
+          <div className="flex flex-wrap gap-[9px] items-center">
+            {competitors.map(c => (
+              <span key={c} className="inline-flex items-center gap-2 bg-[#F4F6F9] border border-[#E6E9EE] rounded-full py-[7px] pl-[14px] pr-2 text-[13.5px] text-[#333]">
+                {c}
+                <span onClick={() => onRemoveCompetitor(c)} className="w-[18px] h-[18px] rounded-full bg-[#E2E6EC] text-[#7A8290] flex items-center justify-center text-[13px] cursor-pointer hover:bg-[#d0d4dc]">×</span>
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1.5">
+              <input value={newCompetitor} onChange={e => onNewCompetitor(e.target.value)} onKeyDown={e => e.key === 'Enter' && onAddCompetitor()} placeholder="Add competitor" className="border border-dashed border-[#CFCFCF] rounded-full px-[14px] py-[7px] text-[13.5px] w-[140px] focus:border-[#2D6AE0] focus:outline-none" />
+              <span onClick={onAddCompetitor} className="text-[13.5px] text-[#2D6AE0] font-semibold cursor-pointer hover:opacity-80">+ Add</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-[#EEF3FE] rounded-[13px] px-[18px] py-4 text-[14.5px] leading-[1.55] text-[#3a4a63]">
+          We'll evaluate how AI models perceive <strong className="text-[#1b1b1b]">{brand}</strong> in the <strong className="text-[#1b1b1b]">{industry}</strong> space against the competitors above.
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3 mt-7">
+        <button onClick={onGoHome} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-[22px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Edit query</button>
+        <button onClick={onNextStep} className="bg-[#2D6AE0] text-white border-none rounded-[11px] px-[26px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#2560d0]">Looks good →</button>
+      </div>
+    </div>
+  );
+}
+
+function Step2({ personas, addingPersona, newPersona, onTogglePersona, onExpandPersona, onOpenAddPersona, onCloseAddPersona, onNewPersonaField, onSaveCustomPersona, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'addingPersona' | 'newPersona' | 'onTogglePersona' | 'onExpandPersona' | 'onOpenAddPersona' | 'onCloseAddPersona' | 'onNewPersonaField' | 'onSaveCustomPersona' | 'onPrevStep' | 'onNextStep'>) {
+  const selectedCount = personas.filter(p => p.selected).length;
+
+  return (
+    <div className="animate-fadeUp">
+      <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">We generated {selectedCount} buyer personas</h2>
+      <p className="text-[15.5px] text-[#777] mb-7 max-w-[620px]">These represent the people who'd ask AI about your category. Adjust, remove, or add custom personas — up to 15.</p>
+
+      <div className="grid grid-cols-2 gap-[14px]">
+        {personas.map(p => (
+          <div key={p.id} onClick={() => onExpandPersona(p.id)} className="bg-white border border-[#ECECEC] rounded-[15px] p-[18px] cursor-pointer hover:border-[#D5D5D5] transition-colors">
+            <div className="flex items-start gap-[13px]">
+              <div className="w-10 h-10 rounded-[11px] bg-[#EEF3FE] text-[#2D6AE0] flex items-center justify-center text-sm font-bold flex-shrink-0">{p.initials}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[15px] font-semibold text-[#1b1b1b]">{p.title}</div>
+                <div className="text-[13px] text-[#888] leading-[1.45] mt-[3px]">{p.desc}</div>
+              </div>
+              <div onClick={e => { e.stopPropagation(); onTogglePersona(p.id); }} className="flex-shrink-0 mt-0.5">
+                {p.selected
+                  ? <div className="w-[22px] h-[22px] rounded-[7px] bg-[#2D6AE0] text-white flex items-center justify-center text-[13px] font-bold">✓</div>
+                  : <div className="w-[22px] h-[22px] rounded-[7px] border-2 border-[#E2E2E2]" />
+                }
+              </div>
+            </div>
+            {p.expanded && (
+              <div className="mt-[14px] pt-[14px] border-t border-[#F0F0F0] flex flex-col gap-[9px]">
+                <div className="text-[12.5px] text-[#666] leading-relaxed"><strong className="text-[#444]">Role · </strong>{p.role}</div>
+                <div className="text-[12.5px] text-[#666] leading-relaxed"><strong className="text-[#444]">Pain points · </strong>{p.pains}</div>
+                <div className="text-[12.5px] text-[#666] leading-relaxed"><strong className="text-[#444]">Decision criteria · </strong>{p.criteria}</div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {addingPersona ? (
+        <div className="bg-white border border-[#cdddf8] rounded-[15px] p-[22px] mt-[14px]">
+          <div className="text-[15px] font-semibold mb-4">New custom persona</div>
+          <div className="grid grid-cols-2 gap-3">
+            {(['name', 'role', 'industry', 'goals', 'pains', 'criteria'] as (keyof NewPersona)[]).map(field => (
+              <input key={field} value={newPersona[field]} onChange={e => onNewPersonaField(field, e.target.value)} placeholder={field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} className="border border-[#E2E2E2] rounded-[10px] px-[13px] py-[11px] text-sm focus:border-[#2D6AE0] focus:outline-none" />
+            ))}
+          </div>
+          <div className="flex justify-end gap-2.5 mt-4">
+            <button onClick={onCloseAddPersona} className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">Cancel</button>
+            <button onClick={onSaveCustomPersona} className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-5 py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#2560d0]">Save persona</button>
+          </div>
+        </div>
+      ) : (
+        <div onClick={onOpenAddPersona} className="mt-[14px] border-[1.5px] border-dashed border-[#D2D2D2] rounded-[15px] p-[18px] text-center text-sm font-semibold text-[#2D6AE0] cursor-pointer hover:border-[#2D6AE0] hover:bg-[#EEF3FE] transition-colors">
+          + Add Custom Persona
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mt-7">
+        <span className="text-[13.5px] text-[#888]">{selectedCount} of 15 personas selected</span>
+        <div className="flex gap-3">
+          <button onClick={onPrevStep} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-[22px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Back</button>
+          <button onClick={onNextStep} className="bg-[#2D6AE0] text-white border-none rounded-[11px] px-[26px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#2560d0]">Continue →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Step3({ models, onToggleModel, onPrevStep, onNextStep }: Pick<WizardProps, 'models' | 'onToggleModel' | 'onPrevStep' | 'onNextStep'>) {
+  return (
+    <div className="animate-fadeUp">
+      <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">Choose which AI models to evaluate</h2>
+      <p className="text-[15.5px] text-[#777] mb-7 max-w-[620px]">Select the AI tools your audience is likely using. More models means a broader visibility picture.</p>
+
+      <div className="flex flex-col gap-3">
+        {models.map(m => (
+          <div key={m.id} className="bg-white border border-[#ECECEC] rounded-[14px] px-[18px] py-4 flex items-center gap-[15px]">
+            <div className="w-[42px] h-[42px] rounded-[12px] bg-[#F4F4F4] text-[#555] flex items-center justify-center text-lg font-bold flex-shrink-0">{m.mono}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-[9px]">
+                <span className="text-[15.5px] font-semibold text-[#1b1b1b]">{m.name}</span>
+                <span className={`text-[10.5px] font-bold tracking-[0.04em] rounded-full px-[9px] py-[3px] ${m.enabled ? 'text-[#2D6AE0] bg-[#EEF3FE]' : 'text-[#A0A0A0] bg-[#F0F0F0]'}`}>{m.badge}</span>
+              </div>
+              <div className="text-[13px] text-[#999] mt-[2px]">{m.vendor}</div>
+            </div>
+            <div onClick={() => m.available && onToggleModel(m.id)} className={`cursor-pointer ${!m.available ? 'opacity-40 cursor-not-allowed' : ''}`}>
+              {m.enabled
+                ? <div className="w-[46px] h-[26px] rounded-full bg-[#2D6AE0] relative"><div className="absolute top-[3px] left-[23px] w-5 h-5 rounded-full bg-white transition-all" /></div>
+                : <div className="w-[46px] h-[26px] rounded-full bg-[#E4E4E4] relative opacity-70"><div className="absolute top-[3px] left-[3px] w-5 h-5 rounded-full bg-white" /></div>
+              }
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="text-[13px] text-[#9A9A9A] mt-4 leading-relaxed">For this preview, Claude is enabled. The architecture supports every model above — additional models are rolling out soon.</div>
+
+      <div className="flex justify-end gap-3 mt-7">
+        <button onClick={onPrevStep} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-[22px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Back</button>
+        <button onClick={onNextStep} className="bg-[#2D6AE0] text-white border-none rounded-[11px] px-[26px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#2560d0]">Continue →</button>
+      </div>
+    </div>
+  );
+}
+
+function Step4({ brand, industry, competitors, personas, models, onPrevStep, onLaunch }: Pick<WizardProps, 'brand' | 'industry' | 'competitors' | 'personas' | 'models' | 'onPrevStep' | 'onLaunch'>) {
+  const selectedCount = personas.filter(p => p.selected).length;
+  const enabledModels = models.filter(m => m.enabled).map(m => m.name).join(', ');
+
+  return (
+    <div className="animate-fadeUp">
+      <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">Review your analysis setup</h2>
+      <p className="text-[15.5px] text-[#777] mb-7">One last look before we run it.</p>
+
+      <div className="bg-white border border-[#ECECEC] rounded-[18px] px-7 py-0 mb-5">
+        {[
+          { label: 'Brand', value: <span>{brand} <span className="text-[#999] font-normal">in {industry}</span></span> },
+          { label: 'Competitors', value: <div className="flex flex-wrap gap-[7px] justify-end">{competitors.map(c => <span key={c} className="text-[13px] bg-[#F4F6F9] border border-[#E6E9EE] rounded-full px-3 py-[5px] text-[#444]">{c}</span>)}</div> },
+          { label: 'Personas', value: `${selectedCount} selected` },
+          { label: 'AI Models', value: enabledModels },
+          { label: 'Estimated time', value: '~2 minutes' },
+        ].map(({ label, value }, i, arr) => (
+          <div key={label} className={`flex justify-between items-center py-[18px] ${i < arr.length - 1 ? 'border-b border-[#F2F2F2]' : ''}`}>
+            <span className="text-[13px] text-[#999] font-semibold uppercase tracking-[0.04em] flex-shrink-0">{label}</span>
+            <span className="text-[15px] text-[#1b1b1b] font-semibold">{value}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-[13px] text-[#999] font-semibold uppercase tracking-[0.04em] mb-3">Sample prompts we'll generate</div>
+      <div className="flex flex-col gap-2.5 mb-[30px]">
+        {SAMPLE_PROMPTS.map((sp, i) => (
+          <div key={i} className="bg-white border border-[#ECECEC] border-l-[3px] border-l-[#2D6AE0] rounded-r-[12px] px-[18px] py-[15px] text-sm leading-[1.55] text-[#555] italic">"{sp}"</div>
+        ))}
+      </div>
+
+      <div className="flex justify-between items-center">
+        <button onClick={onPrevStep} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-[22px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Back</button>
+        <div className="flex gap-3 items-center">
+          <button className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-5 py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Save as Draft</button>
+          <button onClick={onLaunch} className="bg-[#2D6AE0] text-white border-none rounded-[11px] px-8 py-[13px] text-[15px] font-semibold cursor-pointer hover:bg-[#2560d0] shadow-[0_8px_20px_-8px_#2D6AE0]">Run Analysis</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Wizard(props: WizardProps) {
+  const { step } = props;
+
+  return (
+    <div className="max-w-[880px] mx-auto px-6 py-[46px] pb-[110px] animate-fadeUp">
+      <StepBar step={step} />
+      {step === 1 && <Step1 {...props} />}
+      {step === 2 && <Step2 {...props} />}
+      {step === 3 && <Step3 {...props} />}
+      {step === 4 && <Step4 {...props} />}
+    </div>
+  );
+}
