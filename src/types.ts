@@ -1,4 +1,4 @@
-export type Screen = 'home' | 'wizard' | 'running' | 'results' | 'history' | 'settings';
+export type Screen = 'home' | 'wizard' | 'running' | 'results' | 'history' | 'settings' | 'activation';
 export type RunStatus = 'waiting' | 'running' | 'done';
 export type Sentiment = 'Positive' | 'Neutral' | 'Negative';
 
@@ -60,6 +60,41 @@ export interface NewPersona {
   criteria: string;
 }
 
+export interface Product {
+  name: string;
+  count: number;
+  share: number;
+  isBrand?: boolean;
+}
+
+export interface Citation {
+  domain: string;
+  title: string;
+  count: number;
+}
+
+export interface Publisher {
+  name: string;
+  type: string;
+  mentions: number;
+}
+
+export interface Community {
+  name: string;
+  platform: string;
+  mentions: number;
+}
+
+export interface SitelistEntry {
+  name: string;
+  category: string;
+  score: number;
+  inventory: string[];
+  availability: string;
+  cpm: string;
+  buyable: boolean;
+}
+
 export interface AppState {
   screen: Screen;
   step: number;
@@ -76,4 +111,6 @@ export interface AppState {
   runStatuses: Record<string, RunStatus>;
   openResult: string | null;
   apiKey: string;
+  personaPrompts: Record<string, string[]>;
+  promptsExpanded: Record<string, boolean>;
 }

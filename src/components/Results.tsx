@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { Persona } from '../types';
-import { RESULTS } from '../data';
+import { RESULTS, PRODUCTS, CITATIONS, PUBLISHERS, COMMUNITIES } from '../data';
 
 interface ResultsProps {
   brand: string;
@@ -8,6 +8,17 @@ interface ResultsProps {
   personas: Persona[];
   competitors: string[];
   onGoHome: () => void;
+  onOpenActivation: () => void;
+}
+
+const ACCENT = '#2D6AE0';
+
+function hexA(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function VisibilityRing({ score }: { score: number }) {
@@ -27,80 +38,135 @@ function VisibilityRing({ score }: { score: number }) {
 
 function HeatmapChart({ personas }: { personas: Persona[] }) {
   const selected = personas.filter(p => p.selected);
-  const dims = ['Visibility', 'Sentiment', 'Rank'];
-  const colors = (val: number) => {
-    if (val >= 75) return '#1E9E6A';
-    if (val >= 50) return '#2D6AE0';
-    if (val > 0) return '#F0A64A';
-    return '#E5E5E5';
+  const cols = ['Visibility', 'Sentiment', 'Rank', 'Presence'];
+
+  const cellColor = (v: number): [string, string] => {
+    if (v >= 75) return [ACCENT, '#fff'];
+    if (v >= 60) return [hexA(ACCENT, 0.62), '#fff'];
+    if (v >= 45) return [hexA(ACCENT, 0.40), '#214a8c'];
+    if (v >= 20) return [hexA(ACCENT, 0.18), '#33507f'];
+    return ['#F1F1F1', '#B0B0B0'];
   };
+  const sentimentScore = (s: string) => s === 'Positive' ? 88 : s === 'Neutral' ? 55 : 28;
+  const rankScore = (r: number | null) => !r ? 10 : r === 1 ? 92 : r === 2 ? 76 : r === 3 ? 55 : 35;
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[13px]">
-        <thead>
-          <tr>
-            <th className="text-left text-[#999] font-semibold pb-2 pr-4">Persona</th>
-            {dims.map(d => <th key={d} className="text-[#999] font-semibold pb-2 px-2 text-center">{d}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {selected.map(p => {
-            const r = RESULTS[p.id];
-            if (!r) return null;
-            const vals = [r.vis, r.sentiment === 'Positive' ? 85 : r.sentiment === 'Neutral' ? 50 : 20, r.rank ? (4 - r.rank) * 30 : 0];
-            return (
-              <tr key={p.id}>
-                <td className="py-1.5 pr-4 text-[#333] font-medium whitespace-nowrap">{p.title}</td>
-                {vals.map((v, i) => (
-                  <td key={i} className="py-1.5 px-2 text-center">
-                    <div className="inline-flex items-center justify-center w-10 h-8 rounded-lg text-white text-[12px] font-semibold" style={{ backgroundColor: colors(v) }}>
-                      {v > 0 ? v : '–'}
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <div className="flex gap-4 mt-3 text-[12px] text-[#888]">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#1E9E6A] inline-block" />Strong (75+)</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#2D6AE0] inline-block" />Good (50–74)</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#F0A64A] inline-block" />Weak (1–49)</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#E5E5E5] inline-block" />Not mentioned</span>
+      <div className="grid gap-0 items-center" style={{ gridTemplateColumns: '150px repeat(4, 1fr)', minWidth: 520 }}>
+        <div />
+        {cols.map(c => (
+          <div key={c} className="text-center text-[10px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase pb-2.5">{c}</div>
+        ))}
+        {selected.map(p => {
+          const r = RESULTS[p.id];
+          const mentioned = !!r?.mentioned;
+          const vals = [mentioned ? (r?.vis ?? 0) : 0, mentioned ? sentimentScore(r!.sentiment) : 8, mentioned ? rankScore(r!.rank) : 8, mentioned ? 90 : 10];
+          const labels: (string | number)[] = [mentioned ? (r?.vis ?? 0) : '–', mentioned ? r!.sentiment[0] : '–', mentioned ? `#${r!.rank}` : '–', mentioned ? 'Yes' : 'No'];
+          return (
+            <Fragment key={p.id}>
+              <div className="text-[12.5px] text-[#444] pr-3.5 whitespace-nowrap overflow-hidden text-ellipsis">{p.title}</div>
+              {vals.map((v, ci) => {
+                const [bg, fg] = cellColor(v);
+                return (
+                  <div key={ci} className="rounded-[9px] h-10 flex items-center justify-center text-xs font-semibold m-[3px]" style={{ background: bg, color: fg }}>
+                    {labels[ci]}
+                  </div>
+                );
+              })}
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function BarChart({ brand, competitors }: { brand: string, competitors: string[] }) {
-  const allBrands = [brand, ...competitors.slice(0, 3)];
-  const mentions = [6, 7, 5, 4];
-  const max = Math.max(...mentions);
-  const colors = ['#2D6AE0', '#E7A491', '#E7A491', '#E7A491'];
+function CompetitorBarChart() {
+  const data = PRODUCTS.slice(0, 5);
+  const W = 560, H = 250, padT = 26, padB = 44, max = 8, x0 = 26;
+  const innerW = W - x0 - 20, bw = 60, gap = (innerW - data.length * bw) / (data.length - 1), chartH = H - padT - padB;
 
   return (
-    <div className="flex flex-col gap-3">
-      {allBrands.map((b, i) => (
-        <div key={b} className="flex items-center gap-3">
-          <div className="w-[100px] text-[13px] text-[#555] text-right truncate">{b}</div>
-          <div className="flex-1 h-7 bg-[#F4F4F4] rounded-md overflow-hidden">
-            <div
-              className="h-full rounded-md transition-all duration-700"
-              style={{ width: `${(mentions[i] / max) * 100}%`, backgroundColor: colors[i] }}
-            />
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block' }}>
+      {[0, 2, 4, 6, 8].map(g => {
+        const y = padT + chartH - (g / max) * chartH;
+        return (
+          <g key={g}>
+            <line x1={x0} y1={y} x2={W - 20} y2={y} stroke="#EDEDED" />
+            <text x={x0 - 6} y={y + 3} fontSize="10" fill="#BBB" textAnchor="end">{g}</text>
+          </g>
+        );
+      })}
+      {data.map((d, i) => {
+        const bh = (d.count / max) * chartH, x = x0 + i * (bw + gap), y = padT + chartH - bh;
+        return (
+          <g key={d.name}>
+            <rect x={x} y={y} width={bw} height={bh} rx={8} fill={d.isBrand ? ACCENT : '#D7DEE9'} />
+            <text x={x + bw / 2} y={y - 9} fontSize="13" fontWeight="700" fill={d.isBrand ? ACCENT : '#9A9A9A'} textAnchor="middle">{d.count}</text>
+            <text x={x + bw / 2} y={H - padB + 22} fontSize="11.5" fill={d.isBrand ? '#1b1b1b' : '#888'} fontWeight={d.isBrand ? 700 : 500} textAnchor="middle">{d.name}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function ShareOfVoiceChart() {
+  const grays = ['#D7DEE9', '#C7D0DE', '#B7C2D3', '#A7B4C8', '#97A6BD'];
+  let gi = 0;
+  const colored = PRODUCTS.map(d => ({ ...d, color: d.isBrand ? ACCENT : grays[gi++ % grays.length] }));
+  const S = 200, c = S / 2, r = 78, rw = 26;
+  let acc = -90;
+  const brandShare = colored.find(d => d.isBrand)?.share ?? 0;
+
+  const arcs = colored.map(d => {
+    const a0 = acc, a1 = acc + (d.share / 100) * 360;
+    acc = a1;
+    const large = a1 - a0 > 180 ? 1 : 0;
+    const p0 = [c + r * Math.cos(a0 * Math.PI / 180), c + r * Math.sin(a0 * Math.PI / 180)];
+    const p1 = [c + r * Math.cos(a1 * Math.PI / 180), c + r * Math.sin(a1 * Math.PI / 180)];
+    const path = `M${p0[0]} ${p0[1]} A${r} ${r} 0 ${large} 1 ${p1[0]} ${p1[1]}`;
+    return <path key={d.name} d={path} fill="none" stroke={d.color} strokeWidth={rw} />;
+  });
+
+  return (
+    <div className="flex gap-7 items-center flex-wrap">
+      <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S} className="flex-shrink-0">
+        {arcs}
+        <text x={c} y={c - 4} textAnchor="middle" fontSize="26" fontWeight="700" fill="#1b1b1b">{brandShare}%</text>
+        <text x={c} y={c + 17} textAnchor="middle" fontSize="11" fill="#999">your share</text>
+      </svg>
+      <div className="flex flex-col gap-2.5 flex-1 min-w-[160px]">
+        {colored.map(d => (
+          <div key={d.name} className="flex items-center gap-2.5">
+            <div className="w-[11px] h-[11px] rounded-[3px] flex-shrink-0" style={{ background: d.color }} />
+            <div className="text-[13.5px] flex-1" style={{ color: d.isBrand ? '#1b1b1b' : '#555', fontWeight: d.isBrand ? 700 : 500 }}>{d.name}</div>
+            <div className="text-[13.5px] font-bold" style={{ color: d.isBrand ? ACCENT : '#999' }}>{d.share}%</div>
           </div>
-          <div className="w-5 text-[13px] text-[#666] font-semibold">{mentions[i]}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProductsMentioned() {
+  return (
+    <div className="flex flex-col gap-2.5">
+      {PRODUCTS.map(p => (
+        <div key={p.name} className="flex items-center gap-3">
+          <div className="w-[120px] text-[13.5px] text-[#333] whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0" style={{ fontWeight: p.isBrand ? 700 : 500 }}>{p.name}</div>
+          <div className="flex-1 h-[9px] bg-[#F2F2F2] rounded-full overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${p.share}%`, background: ACCENT }} />
+          </div>
+          <div className="w-[22px] text-right text-[13px] font-bold text-[#555]">{p.count}</div>
         </div>
       ))}
     </div>
   );
 }
 
-function RadarChart(_props: { brand: string }) {
-  const categories = ['Enterprise fit', 'Developer UX', 'Price-value', 'Simplicity', 'API quality', 'Support'];
-  const scores = [84, 80, 61, 70, 80, 65];
+function RadarChart() {
+  const categories: [string, number][] = [['Technical', 80], ['Business', 74], ['Enterprise', 66], ['Ease of Use', 78], ['Pricing', 58], ['Support', 64]];
   const n = categories.length;
   const cx = 110, cy = 110, r = 80;
 
@@ -112,7 +178,7 @@ function RadarChart(_props: { brand: string }) {
   const rings = [0.25, 0.5, 0.75, 1];
   const angles = categories.map((_, i) => (i * 2 * Math.PI) / n);
 
-  const dataPoints = scores.map((s, i) => toXY(angles[i], (s / 100) * r));
+  const dataPoints = categories.map((cat, i) => toXY(angles[i], (cat[1] / 100) * r));
   const polyPoints = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
 
   return (
@@ -135,8 +201,8 @@ function RadarChart(_props: { brand: string }) {
       {categories.map((cat, i) => {
         const pos = toXY(angles[i], r + 18);
         return (
-          <text key={cat} x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="#888" fontFamily="sans-serif">
-            {cat}
+          <text key={cat[0]} x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="#888" fontFamily="sans-serif">
+            {cat[0]}
           </text>
         );
       })}
@@ -144,7 +210,7 @@ function RadarChart(_props: { brand: string }) {
   );
 }
 
-export function Results({ brand, industry, personas, competitors, onGoHome }: ResultsProps) {
+export function Results({ brand, industry, personas, competitors, onGoHome, onOpenActivation }: ResultsProps) {
   const [openResult, setOpenResult] = useState<string | null>('p1');
   const selected = personas.filter(p => p.selected);
   const mentioned = selected.filter(p => RESULTS[p.id]?.mentioned).length;
@@ -164,7 +230,8 @@ export function Results({ brand, industry, personas, competitors, onGoHome }: Re
           {['Export PDF', 'Export CSV', 'Share'].map(btn => (
             <button key={btn} className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">{btn}</button>
           ))}
-          <button onClick={onGoHome} className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#2560d0]">Re-run</button>
+          <button onClick={onGoHome} className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">Re-run</button>
+          <button onClick={onOpenActivation} className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#2560d0]">Build AI Influence Sitelist →</button>
         </div>
       </div>
 
@@ -197,8 +264,22 @@ export function Results({ brand, industry, personas, competitors, onGoHome }: Re
         </div>
       </div>
 
+      {/* Share of Voice + Products mentioned */}
+      <div className="grid grid-cols-2 gap-4 mb-4" style={{ gridTemplateColumns: '1fr 1.1fr' }}>
+        <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6">
+          <div className="text-[15px] font-semibold mb-1">Share of Voice</div>
+          <div className="text-[13px] text-[#999] mb-[18px]">Your brand's share of all product mentions across responses</div>
+          <ShareOfVoiceChart />
+        </div>
+        <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6">
+          <div className="text-[15px] font-semibold mb-1">Products mentioned</div>
+          <div className="text-[13px] text-[#999] mb-4">Every brand AI responses surfaced, ranked by mention count</div>
+          <ProductsMentioned />
+        </div>
+      </div>
+
       {/* Per-persona accordion */}
-      <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-[14px]">Per-persona responses</h3>
+      <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-[14px] mt-9">Personas analysed · prompts &amp; AI responses</h3>
       <div className="flex flex-col gap-2.5 mb-10">
         {selected.map(p => {
           const r = RESULTS[p.id];
@@ -245,6 +326,53 @@ export function Results({ brand, industry, personas, competitors, onGoHome }: Re
         })}
       </div>
 
+      {/* Sources */}
+      <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-[14px]">Sources referenced by AI responses</h3>
+      <div className="grid gap-4 mb-10" style={{ gridTemplateColumns: '1.2fr 1fr 1fr' }}>
+        <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px]">
+          <div className="text-[14.5px] font-semibold mb-[14px]">Citation sources</div>
+          <div className="flex flex-col gap-[13px]">
+            {CITATIONS.map(c => (
+              <div key={c.domain}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] font-semibold text-[#2D6AE0]">{c.domain}</span>
+                  <span className="text-[11.5px] text-[#AAA] font-semibold flex-shrink-0">{c.count}×</span>
+                </div>
+                <div className="text-[12.5px] text-[#888] mt-0.5 leading-snug">{c.title}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px]">
+          <div className="text-[14.5px] font-semibold mb-[14px]">Publisher list</div>
+          <div className="flex flex-col gap-3">
+            {PUBLISHERS.map(p => (
+              <div key={p.name} className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-[13.5px] font-semibold text-[#1b1b1b]">{p.name}</div>
+                  <div className="text-xs text-[#999]">{p.type}</div>
+                </div>
+                <span className="text-[11.5px] font-semibold text-[#666] bg-[#F4F4F4] rounded-full px-2.5 py-[3px] flex-shrink-0">{p.mentions}×</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px]">
+          <div className="text-[14.5px] font-semibold mb-[14px]">Community list</div>
+          <div className="flex flex-col gap-3">
+            {COMMUNITIES.map(cm => (
+              <div key={cm.name} className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-[13.5px] font-semibold text-[#1b1b1b]">{cm.name}</div>
+                  <div className="text-xs text-[#999]">{cm.platform}</div>
+                </div>
+                <span className="text-[11.5px] font-semibold text-[#666] bg-[#F4F4F4] rounded-full px-2.5 py-[3px] flex-shrink-0">{cm.mentions}×</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Analytics */}
       <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-[14px]">Visual analytics</h3>
       <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 mb-4">
@@ -254,14 +382,14 @@ export function Results({ brand, industry, personas, competitors, onGoHome }: Re
       </div>
       <div className="grid grid-cols-[1.15fr_1fr] gap-4">
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6">
-          <div className="text-[15px] font-semibold mb-1">Mention frequency vs. competitors</div>
-          <div className="text-[13px] text-[#999] mb-[18px]">Times mentioned across all persona queries</div>
-          <BarChart brand={brand} competitors={competitors} />
+          <div className="text-[15px] font-semibold mb-1">Competitor comparison</div>
+          <div className="text-[13px] text-[#999] mb-[18px]">Mention frequency vs. competitors across all persona queries</div>
+          <CompetitorBarChart />
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6">
           <div className="text-[15px] font-semibold mb-1">Brand strength by category</div>
           <div className="text-[13px] text-[#999] mb-2">Relative strength across evaluation themes</div>
-          <RadarChart brand={brand} />
+          <RadarChart />
         </div>
       </div>
     </div>

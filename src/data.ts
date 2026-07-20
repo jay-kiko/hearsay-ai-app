@@ -1,4 +1,4 @@
-import type { Persona, AIModel, PersonaResult, HistoryEntry } from './types';
+import type { Persona, AIModel, PersonaResult, HistoryEntry, Product, Citation, Publisher, Community, SitelistEntry } from './types';
 
 export const INDUSTRIES = [
   'Project Management Software',
@@ -54,4 +54,54 @@ export const SAMPLE_PROMPTS = [
   'As a startup founder evaluating project management tools, which platforms would you recommend and why?',
   'I\'m an enterprise CTO looking for a scalable PM platform with strong security. What should I consider?',
   'What project management software is best for a small creative agency?',
+];
+
+export const PRODUCTS: Product[] = [
+  { name: 'Asana', count: 7, share: 26 },
+  { name: 'Flowstate', count: 6, share: 22, isBrand: true },
+  { name: 'Monday.com', count: 5, share: 18 },
+  { name: 'ClickUp', count: 4, share: 15 },
+  { name: 'Notion', count: 4, share: 12 },
+  { name: 'Smartsheet', count: 2, share: 4 },
+  { name: 'Trello', count: 2, share: 3 },
+];
+
+export const CITATIONS: Citation[] = [
+  { domain: 'g2.com', title: 'G2 — Project Management Software Reviews & Rankings', count: 5 },
+  { domain: 'capterra.com', title: 'Capterra — Best Project Management Tools 2026', count: 4 },
+  { domain: 'reddit.com/r/projectmanagement', title: 'r/projectmanagement — tool comparison threads', count: 3 },
+  { domain: 'trustradius.com', title: 'TrustRadius — Verified user reviews', count: 3 },
+  { domain: 'producthunt.com', title: 'Product Hunt — launch discussion & upvotes', count: 2 },
+  { domain: 'techcrunch.com', title: 'TechCrunch — coverage of workplace software', count: 2 },
+];
+
+export const PUBLISHERS: Publisher[] = [
+  { name: 'TechCrunch', type: 'Tech news', mentions: 3 },
+  { name: 'The Verge', type: 'Tech news', mentions: 2 },
+  { name: 'PCMag', type: 'Review outlet', mentions: 2 },
+  { name: 'G2', type: 'Review platform', mentions: 5 },
+  { name: 'Capterra', type: 'Review platform', mentions: 4 },
+  { name: 'Zapier Blog', type: 'Vendor blog', mentions: 2 },
+];
+
+export const COMMUNITIES: Community[] = [
+  { name: 'r/projectmanagement', platform: 'Reddit', mentions: 3 },
+  { name: 'r/SaaS', platform: 'Reddit', mentions: 2 },
+  { name: 'Hacker News', platform: 'HN', mentions: 2 },
+  { name: 'Indie Hackers', platform: 'Forum', mentions: 1 },
+  { name: 'Product Hunt Discussions', platform: 'Product Hunt', mentions: 2 },
+];
+
+export const SITELIST: SitelistEntry[] = [
+  { name: 'G2', category: 'Review platform', score: 92, inventory: ['Display', 'Native', 'Newsletter'], availability: 'US, UK, EU', cpm: '$18–26', buyable: true },
+  { name: 'Capterra', category: 'Review platform', score: 88, inventory: ['Display', 'Native', 'PMP'], availability: 'US, UK, EU, APAC', cpm: '$16–22', buyable: true },
+  { name: 'TrustRadius', category: 'Review platform', score: 79, inventory: ['Display', 'Newsletter'], availability: 'US, UK', cpm: '$14–20', buyable: true },
+  { name: 'TechCrunch', category: 'Tech news', score: 85, inventory: ['Display', 'Video', 'Newsletter'], availability: 'Global', cpm: '$22–34', buyable: true },
+  { name: 'The Verge', category: 'Tech news', score: 74, inventory: ['Display', 'Video'], availability: 'US, UK', cpm: '$20–30', buyable: true },
+  { name: 'PCMag', category: 'Review outlet', score: 68, inventory: ['Display', 'Native'], availability: 'US', cpm: '$12–18', buyable: true },
+  { name: 'Zapier Blog', category: 'Vendor blog', score: 61, inventory: ['Native', 'Newsletter'], availability: 'Global', cpm: '$9–14', buyable: true },
+  { name: 'Product Hunt', category: 'Community', score: 70, inventory: ['Native', 'Newsletter'], availability: 'Global', cpm: '$8–12', buyable: true },
+  { name: 'r/projectmanagement', category: 'Community', score: 58, inventory: ['Native'], availability: 'Global', cpm: '—', buyable: false },
+  { name: 'Hacker News', category: 'Community', score: 55, inventory: ['Native'], availability: 'Global', cpm: '—', buyable: false },
+  { name: 'Indie Hackers', category: 'Community', score: 42, inventory: ['Native', 'Newsletter'], availability: 'Global', cpm: '$6–9', buyable: true },
 ];

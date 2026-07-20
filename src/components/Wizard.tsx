@@ -1,5 +1,5 @@
 import type { Persona, AIModel, NewPersona } from '../types';
-import { INDUSTRIES, SAMPLE_PROMPTS } from '../data';
+import { INDUSTRIES } from '../data';
 
 interface WizardProps {
   step: number;
@@ -11,6 +11,9 @@ interface WizardProps {
   newPersona: NewPersona;
   personas: Persona[];
   models: AIModel[];
+  personaPrompts: Record<string, string[]>;
+  promptsExpanded: Record<string, boolean>;
+  getPersonaPrompts: (id: string) => string[];
   onBrand: (v: string) => void;
   onIndustry: (v: string) => void;
   onRemoveCompetitor: (c: string) => void;
@@ -23,6 +26,10 @@ interface WizardProps {
   onNewPersonaField: (field: keyof NewPersona, val: string) => void;
   onSaveCustomPersona: () => void;
   onToggleModel: (id: string) => void;
+  onToggleExpandPrompt: (id: string) => void;
+  onAddPrompt: (id: string) => void;
+  onEditPrompt: (id: string, idx: number, val: string) => void;
+  onRemovePrompt: (id: string, idx: number) => void;
   onNextStep: () => void;
   onPrevStep: () => void;
   onGoHome: () => void;
@@ -31,7 +38,7 @@ interface WizardProps {
   onLaunch: () => void;
 }
 
-const STEP_LABELS = ['Brand setup', 'Personas', 'AI Models', 'Review'];
+const STEP_LABELS = ['Brand setup', 'Personas', 'AI Models', 'Prompts', 'Review'];
 
 function StepBar({ step }: { step: number }) {
   const progress = ((step - 1) / (STEP_LABELS.length - 1)) * 100;
@@ -218,7 +225,58 @@ function Step3({ models, onToggleModel, onPrevStep, onNextStep }: Pick<WizardPro
   );
 }
 
-function Step4({ brand, industry, competitors, personas, models, onPrevStep, onLaunch }: Pick<WizardProps, 'brand' | 'industry' | 'competitors' | 'personas' | 'models' | 'onPrevStep' | 'onLaunch'>) {
+function Step4({ personas, promptsExpanded, getPersonaPrompts, onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'promptsExpanded' | 'getPersonaPrompts' | 'onToggleExpandPrompt' | 'onAddPrompt' | 'onEditPrompt' | 'onRemovePrompt' | 'onPrevStep' | 'onNextStep'>) {
+  const selected = personas.filter(p => p.selected);
+
+  return (
+    <div className="animate-fadeUp">
+      <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">Review and edit the prompts</h2>
+      <p className="text-[15.5px] text-[#777] mb-7 max-w-[640px]">We generate one prompt per persona. Edit any of them to better match how your buyers actually ask AI models.</p>
+
+      <div className="flex flex-col gap-3 mb-2">
+        {selected.map(p => {
+          const prompts = getPersonaPrompts(p.id);
+          const expanded = promptsExpanded[p.id] !== false;
+          return (
+            <div key={p.id} className="bg-white border border-[#ECECEC] rounded-[14px] overflow-hidden">
+              <div onClick={() => onToggleExpandPrompt(p.id)} className="flex items-center gap-3 px-[18px] py-[14px] cursor-pointer">
+                <div className="w-8 h-8 rounded-[9px] bg-[#EEF3FE] text-[#2D6AE0] flex items-center justify-center text-xs font-bold flex-shrink-0">{p.initials}</div>
+                <span className="text-[14.5px] font-semibold text-[#1b1b1b] flex-1">{p.title}</span>
+                <span className="text-xs text-[#999] bg-[#F4F4F4] rounded-full px-2.5 py-[3px]">{prompts.length} prompt{prompts.length === 1 ? '' : 's'}</span>
+                <span className={`text-xs text-[#999] inline-block transition-transform ${expanded ? 'rotate-180' : ''}`}>▾</span>
+              </div>
+              {expanded && (
+                <div className="px-[18px] pb-[18px] flex flex-col gap-2.5">
+                  {prompts.map((value, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                      <textarea
+                        value={value}
+                        onChange={e => onEditPrompt(p.id, idx, e.target.value)}
+                        placeholder="Type a prompt this persona might ask…"
+                        className="flex-1 border border-[#E6E6E6] rounded-[10px] px-[14px] py-3 text-sm leading-[1.55] text-[#333] resize-y min-h-[56px] font-inherit focus:border-[#2D6AE0] focus:outline-none"
+                      />
+                      {prompts.length > 1 && (
+                        <span onClick={() => onRemovePrompt(p.id, idx)} className="text-[13px] text-[#B0B0B0] cursor-pointer px-1 py-2 hover:text-[#C2543A]">✕</span>
+                      )}
+                    </div>
+                  ))}
+                  <span onClick={() => onAddPrompt(p.id)} className="text-[13px] font-semibold text-[#2D6AE0] cursor-pointer self-start hover:opacity-80">+ Add another prompt</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-end gap-3 mt-6">
+        <button onClick={onPrevStep} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-[22px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Back</button>
+        <button onClick={onNextStep} className="bg-[#2D6AE0] text-white border-none rounded-[11px] px-[26px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#2560d0]">Continue →</button>
+      </div>
+    </div>
+  );
+}
+
+function Step5({ brand, industry, competitors, personas, models, samplePrompts, onPrevStep, onLaunch }: Pick<WizardProps, 'brand' | 'industry' | 'competitors' | 'personas' | 'models' | 'onPrevStep' | 'onLaunch'> & { samplePrompts: string[] }) {
   const selectedCount = personas.filter(p => p.selected).length;
   const enabledModels = models.filter(m => m.enabled).map(m => m.name).join(', ');
 
@@ -244,7 +302,7 @@ function Step4({ brand, industry, competitors, personas, models, onPrevStep, onL
 
       <div className="text-[13px] text-[#999] font-semibold uppercase tracking-[0.04em] mb-3">Sample prompts we'll generate</div>
       <div className="flex flex-col gap-2.5 mb-[30px]">
-        {SAMPLE_PROMPTS.map((sp, i) => (
+        {samplePrompts.map((sp, i) => (
           <div key={i} className="bg-white border border-[#ECECEC] border-l-[3px] border-l-[#2D6AE0] rounded-r-[12px] px-[18px] py-[15px] text-sm leading-[1.55] text-[#555] italic">"{sp}"</div>
         ))}
       </div>
@@ -261,7 +319,12 @@ function Step4({ brand, industry, competitors, personas, models, onPrevStep, onL
 }
 
 export function Wizard(props: WizardProps) {
-  const { step } = props;
+  const { step, personas, getPersonaPrompts } = props;
+  const samplePrompts = personas
+    .filter(p => p.selected)
+    .flatMap(p => getPersonaPrompts(p.id))
+    .filter(Boolean)
+    .slice(0, 3);
 
   return (
     <div className="max-w-[880px] mx-auto px-6 py-[46px] pb-[110px] animate-fadeUp">
@@ -270,6 +333,7 @@ export function Wizard(props: WizardProps) {
       {step === 2 && <Step2 {...props} />}
       {step === 3 && <Step3 {...props} />}
       {step === 4 && <Step4 {...props} />}
+      {step === 5 && <Step5 {...props} samplePrompts={samplePrompts} />}
     </div>
   );
 }

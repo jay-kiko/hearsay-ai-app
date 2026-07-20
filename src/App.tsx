@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { AppState, NewPersona, RunStatus } from './types';
-import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
+import type { AppState, NewPersona, RunStatus, Persona } from './types';
+import { INITIAL_PERSONAS, INITIAL_MODELS, RESULTS } from './data';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -8,6 +8,7 @@ import { Running } from './components/Running';
 import { Results } from './components/Results';
 import { History } from './components/History';
 import { Settings } from './components/Settings';
+import { Activation } from './components/Activation';
 
 const RUN_SPEED = 650;
 
@@ -27,12 +28,25 @@ const INITIAL_STATE: AppState = {
   runStatuses: {},
   openResult: null,
   apiKey: '',
+  personaPrompts: {},
+  promptsExpanded: {},
 };
 
 function parseBrand(query: string): string {
   const words = query.trim().split(/\s+/);
   if (words.length === 0 || query.trim() === '') return 'Your Brand';
   return words.slice(0, 3).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function defaultPromptFor(p: Persona, industry: string): string {
+  const r = RESULTS[p.id];
+  return r ? r.prompt : `As a ${p.title}, which ${industry} tools would you recommend and why?`;
+}
+
+function getPersonaPromptsFor(state: AppState, id: string): string[] {
+  if (state.personaPrompts[id]) return state.personaPrompts[id];
+  const p = state.personas.find(x => x.id === id);
+  return [p ? defaultPromptFor(p, state.industry) : ''];
 }
 
 export default function App() {
@@ -97,10 +111,38 @@ export default function App() {
 
   useEffect(() => () => { if (runTimerRef.current) clearTimeout(runTimerRef.current); }, []);
 
-  const { screen, step, query, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, runProgress, runStatuses } = state;
+  const { screen, step, query, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, runProgress, runStatuses, personaPrompts, promptsExpanded } = state;
+
+  const getPersonaPrompts = useCallback((id: string) => getPersonaPromptsFor(state, id), [state]);
+
+  const onToggleExpandPrompt = useCallback((id: string) => {
+    setState(s => ({ ...s, promptsExpanded: { ...s.promptsExpanded, [id]: s.promptsExpanded[id] === false ? true : false } }));
+  }, []);
+
+  const onAddPrompt = useCallback((id: string) => {
+    setState(s => {
+      const arr = getPersonaPromptsFor(s, id);
+      return { ...s, personaPrompts: { ...s.personaPrompts, [id]: [...arr, ''] }, promptsExpanded: { ...s.promptsExpanded, [id]: true } };
+    });
+  }, []);
+
+  const onEditPrompt = useCallback((id: string, idx: number, val: string) => {
+    setState(s => {
+      const arr = [...getPersonaPromptsFor(s, id)];
+      arr[idx] = val;
+      return { ...s, personaPrompts: { ...s.personaPrompts, [id]: arr } };
+    });
+  }, []);
+
+  const onRemovePrompt = useCallback((id: string, idx: number) => {
+    setState(s => {
+      const arr = getPersonaPromptsFor(s, id).filter((_, i) => i !== idx);
+      return { ...s, personaPrompts: { ...s.personaPrompts, [id]: arr.length ? arr : [''] } };
+    });
+  }, []);
 
   const wizardProps = {
-    step, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models,
+    step, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, getPersonaPrompts,
     onBrand: (v: string) => update({ brand: v }),
     onIndustry: (v: string) => update({ industry: v }),
     onRemoveCompetitor: (c: string) => update({ competitors: competitors.filter(x => x !== c) }),
@@ -132,7 +174,8 @@ export default function App() {
       update({ personas: [...personas, custom], addingPersona: false, newPersona: { name: '', role: '', industry: '', goals: '', pains: '', criteria: '' } });
     },
     onToggleModel: (id: string) => update({ models: models.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m) }),
-    onNextStep: () => update({ step: Math.min(4, step + 1) }),
+    onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt,
+    onNextStep: () => update({ step: Math.min(5, step + 1) }),
     onPrevStep: () => update({ step: Math.max(1, step - 1) }),
     onGoHome: goHome,
     onOpenHistory: () => update({ screen: 'history' }),
@@ -178,7 +221,12 @@ export default function App() {
           personas={personas}
           competitors={competitors}
           onGoHome={goHome}
+          onOpenActivation={() => update({ screen: 'activation' })}
         />
+      )}
+
+      {screen === 'activation' && (
+        <Activation brand={brand} onBack={() => update({ screen: 'results' })} />
       )}
 
       {screen === 'history' && <History onGoHome={goHome} />}
