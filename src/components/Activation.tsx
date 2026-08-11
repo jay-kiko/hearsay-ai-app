@@ -1,7 +1,8 @@
-import { SITELIST } from '../data';
+import type { SitelistEntry } from '../types';
 
 interface ActivationProps {
   brand: string;
+  sitelist: SitelistEntry[];
   onBack: () => void;
 }
 
@@ -11,14 +12,14 @@ function scoreColor(score: number): string {
   return '#D2603F';
 }
 
-export function Activation({ brand, onBack }: ActivationProps) {
+export function Activation({ brand, sitelist, onBack }: ActivationProps) {
   return (
     <div className="max-w-[1080px] mx-auto px-7 py-10 pb-[110px] animate-fadeUp">
       <div className="flex items-start justify-between flex-wrap gap-4 mb-2.5">
         <div>
           <span onClick={onBack} className="text-[13px] text-[#999] font-semibold cursor-pointer hover:text-[#555]">← Back to results</span>
           <h2 className="text-[32px] tracking-[-0.02em] font-bold mt-2 mb-0">AI Influence Sitelist</h2>
-          <div className="text-[14.5px] text-[#888] mt-[3px] max-w-[640px] leading-snug">Publishers and digital ecosystems shaping how AI models describe {brand} — ranked by influence and ready to activate as media.</div>
+          <div className="text-[14.5px] text-[#888] mt-[3px] max-w-[640px] leading-snug">Publishers and digital ecosystems shaping how AI models describe {brand} — ranked by influence. Market availability, CPM, and buyability aren't wired to real ad inventory yet.</div>
         </div>
         <div className="flex gap-2.5 flex-wrap">
           <button className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">Export CSV</button>
@@ -30,14 +31,17 @@ export function Activation({ brand, onBack }: ActivationProps) {
         <div className="grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-[14px] border-b border-[#F0F0F0] text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase">
           <span>Publisher</span><span>AI Influence</span><span>Inventory</span><span>Market availability</span><span>Est. CPM</span><span>Status</span>
         </div>
-        {SITELIST.map((p, i) => (
-          <div key={p.name} className={`grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-4 text-sm text-[#444] items-center ${i < SITELIST.length - 1 ? 'border-b border-[#F4F4F4]' : ''}`}>
+        {sitelist.length === 0 && (
+          <div className="px-[22px] py-10 text-center text-[13.5px] text-[#999]">No influential publishers surfaced for this analysis.</div>
+        )}
+        {sitelist.map((p, i) => (
+          <div key={p.name} className={`grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-4 text-sm text-[#444] items-center ${i < sitelist.length - 1 ? 'border-b border-[#F4F4F4]' : ''}`}>
             <div>
               <div className="font-semibold text-[#1b1b1b]">{p.name}</div>
               <div className="text-xs text-[#999] mt-[1px]">{p.category}</div>
             </div>
             <div className="font-bold" style={{ color: scoreColor(p.score) }}>{p.score}</div>
-            <div className="text-[12.5px] text-[#666] leading-snug">{p.inventory.join(' · ')}</div>
+            <div className="text-[12.5px] text-[#666] leading-snug">{p.inventory.length ? p.inventory.join(' · ') : '—'}</div>
             <div className="text-[13px] text-[#555]">{p.availability}</div>
             <div className="text-[13px] text-[#555]">{p.cpm}</div>
             <span

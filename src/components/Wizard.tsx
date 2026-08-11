@@ -13,6 +13,8 @@ interface WizardProps {
   models: AIModel[];
   personaPrompts: Record<string, string[]>;
   promptsExpanded: Record<string, boolean>;
+  promptsLoading: boolean;
+  promptsError: string | null;
   getPersonaPrompts: (id: string) => string[];
   onBrand: (v: string) => void;
   onIndustry: (v: string) => void;
@@ -225,8 +227,28 @@ function Step3({ models, onToggleModel, onPrevStep, onNextStep }: Pick<WizardPro
   );
 }
 
-function Step4({ personas, promptsExpanded, getPersonaPrompts, onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'promptsExpanded' | 'getPersonaPrompts' | 'onToggleExpandPrompt' | 'onAddPrompt' | 'onEditPrompt' | 'onRemovePrompt' | 'onPrevStep' | 'onNextStep'>) {
+function Step4({ personas, promptsExpanded, promptsLoading, promptsError, getPersonaPrompts, onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'promptsExpanded' | 'promptsLoading' | 'promptsError' | 'getPersonaPrompts' | 'onToggleExpandPrompt' | 'onAddPrompt' | 'onEditPrompt' | 'onRemovePrompt' | 'onPrevStep' | 'onNextStep'>) {
   const selected = personas.filter(p => p.selected);
+
+  if (promptsLoading) {
+    return (
+      <div className="animate-fadeUp text-center py-20">
+        <div className="w-8 h-8 border-[3px] border-[#EEF3FE] border-t-[#2D6AE0] rounded-full animate-spin-slow mx-auto mb-5" />
+        <h2 className="text-[22px] tracking-[-0.02em] font-bold mb-2">Writing prompts for each persona…</h2>
+        <p className="text-[14.5px] text-[#888]">One request, {selected.length} distinct buyer voices.</p>
+      </div>
+    );
+  }
+
+  if (promptsError) {
+    return (
+      <div className="animate-fadeUp text-center py-20 max-w-[440px] mx-auto">
+        <h2 className="text-[22px] tracking-[-0.02em] font-bold mb-2">Couldn't generate prompts</h2>
+        <p className="text-[14.5px] text-[#888] mb-7">{promptsError}</p>
+        <button onClick={onPrevStep} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-[22px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Back</button>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fadeUp">

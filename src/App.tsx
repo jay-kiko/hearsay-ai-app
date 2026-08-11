@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import type { AppState, NewPersona, RunStatus, Persona, AccessCode } from './types';
-import { INITIAL_PERSONAS, INITIAL_MODELS, RESULTS, INITIAL_ACCESS_CODES } from './data';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AccessCode, AnalysisResult, AppState, NewPersona, PersonaResult } from './types';
+import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
+import { ApiError, generatePrompts, listCodes, mintCodes, startAnalysis, streamAnalysis } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -15,20 +16,15 @@ import { AdminCodes } from './components/AdminCodes';
 
 const IS_ADMIN_ROUTE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin');
 
-function generateCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I — avoids visual ambiguity
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += chars[bytes[i] % chars.length];
-  return s.match(/.{1,4}/g)!.join('-');
+function errorMessage(e: unknown): string {
+  return e instanceof ApiError ? e.message : 'Could not reach the backend. Is it running?';
 }
 
-function today(): string {
-  return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+// Backend sends share as a 0-1 fraction; the charts here render it as a
+// whole-number percentage.
+function normalizeResult(result: AnalysisResult): AnalysisResult {
+  return { ...result, products: result.products.map(p => ({ ...p, share: Math.round(p.share * 100) })) };
 }
-
-const RUN_SPEED = 650;
 
 const INITIAL_STATE: AppState = {
   screen: 'home',
@@ -45,7 +41,6 @@ const INITIAL_STATE: AppState = {
   runProgress: 0,
   runStatuses: {},
   openResult: null,
-  apiKey: '',
   personaPrompts: {},
   promptsExpanded: {},
 };
@@ -56,63 +51,90 @@ function parseBrand(query: string): string {
   return words.slice(0, 3).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-function defaultPromptFor(p: Persona, industry: string): string {
-  const r = RESULTS[p.id];
-  return r ? r.prompt : `As a ${p.title}, which ${industry} tools would you recommend and why?`;
-}
-
-function getPersonaPromptsFor(state: AppState, id: string): string[] {
-  if (state.personaPrompts[id]) return state.personaPrompts[id];
-  const p = state.personas.find(x => x.id === id);
-  return [p ? defaultPromptFor(p, state.industry) : ''];
-}
-
 export default function App() {
   const [state, setState] = useState<AppState>(INITIAL_STATE);
   const searchRef = useRef<HTMLTextAreaElement>(null);
-  const runTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeStreamRef = useRef<(() => void) | null>(null);
 
+  // ── Access gate ─────────────────────────────────────────────────────
   const [unlocked, setUnlocked] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
   const [gateError, setGateError] = useState<string | null>(null);
-  const [accessCodes, setAccessCodes] = useState<AccessCode[]>(INITIAL_ACCESS_CODES);
 
-  const [adminAuthed, setAdminAuthed] = useState(false);
-  const [adminError, setAdminError] = useState<string | null>(null);
-
-  const handleVerifyCode = useCallback((code: string) => {
-    const match = accessCodes.find(c => c.code === code && c.usesRemaining > 0);
-    if (!match) {
-      setGateError('Invalid or exhausted access code.');
+  const handleSubmitCode = useCallback((code: string) => {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      setGateError('Enter an access code.');
       return;
     }
-    setAccessCodes(cs => cs.map(c => c.code === code ? { ...c, usesRemaining: c.usesRemaining - 1 } : c));
+    // There's no lightweight endpoint to check a code up front — the backend
+    // only validates a code as a side effect of actually using it (first at
+    // /api/prompts). If it turns out invalid, we bounce back here with the
+    // real error instead of pretending to have checked it already.
+    setAccessCode(trimmed);
     setGateError(null);
     setUnlocked(true);
-  }, [accessCodes]);
+  }, []);
 
-  const handleAdminLogin = useCallback((username: string, password: string) => {
-    if (username === import.meta.env.VITE_ADMIN_USERNAME && password === import.meta.env.VITE_ADMIN_PASSWORD) {
-      setAdminError(null);
+  // ── Admin ───────────────────────────────────────────────────────────
+  const [adminAuthed, setAdminAuthed] = useState(false);
+  const [adminSecret, setAdminSecret] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [adminCodes, setAdminCodes] = useState<AccessCode[]>([]);
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  const handleAdminLogin = useCallback(async (secret: string) => {
+    setAdminLoading(true);
+    setAdminError(null);
+    try {
+      const codes = await listCodes(secret);
+      setAdminSecret(secret);
+      setAdminCodes(codes);
       setAdminAuthed(true);
-    } else {
-      setAdminError('Incorrect username or password.');
+    } catch (e) {
+      setAdminError(errorMessage(e));
+    } finally {
+      setAdminLoading(false);
     }
   }, []);
 
-  const handleGenerateCode = useCallback((usesTotal: number) => {
-    setAccessCodes(cs => [...cs, { code: generateCode(), usesTotal, usesRemaining: usesTotal, createdAt: today() }]);
-  }, []);
+  const handleGenerateCode = useCallback(async (usesTotal: number) => {
+    setGenLoading(true);
+    setGenError(null);
+    try {
+      await mintCodes({ count: 1, uses: usesTotal, adminSecret });
+      setAdminCodes(await listCodes(adminSecret));
+    } catch (e) {
+      setGenError(errorMessage(e));
+    } finally {
+      setGenLoading(false);
+    }
+  }, [adminSecret]);
 
-  const handleRevokeCode = useCallback((code: string) => {
-    setAccessCodes(cs => cs.map(c => c.code === code ? { ...c, usesRemaining: 0 } : c));
-  }, []);
+  // ── Core app state ──────────────────────────────────────────────────
+  const [promptsLoading, setPromptsLoading] = useState(false);
+  const [promptsError, setPromptsError] = useState<string | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [liveResults, setLiveResults] = useState<Record<string, PersonaResult>>({});
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
   const update = useCallback((patch: Partial<AppState>) => setState(s => ({ ...s, ...patch })), []);
 
-  const goHome = useCallback(() => {
-    if (runTimerRef.current) clearTimeout(runTimerRef.current);
-    setState(s => ({ ...s, screen: 'home', step: 1, runStatuses: {}, runProgress: 0 }));
+  const closeStream = useCallback(() => {
+    closeStreamRef.current?.();
+    closeStreamRef.current = null;
   }, []);
+
+  const goHome = useCallback(() => {
+    closeStream();
+    setRunError(null);
+    setLiveResults({});
+    setAnalysisResult(null);
+    setPromptsError(null);
+    setState(s => ({ ...s, screen: 'home', step: 1, runStatuses: {}, runProgress: 0, personaPrompts: {} }));
+  }, [closeStream]);
 
   const focusSearch = useCallback(() => {
     setState(s => ({ ...s, screen: 'home' }));
@@ -127,61 +149,91 @@ export default function App() {
     });
   }, []);
 
-  const launchAnalysis = useCallback(() => {
-    setState(s => {
-      const selected = s.personas.filter(p => p.selected);
-      if (selected.length === 0) return s;
+  const goToPrompts = useCallback(async () => {
+    update({ step: 4 });
+    setPromptsLoading(true);
+    setPromptsError(null);
+    try {
+      const selected = state.personas.filter(p => p.selected);
+      const prompts = await generatePrompts({ brand: state.brand, industry: state.industry, personas: selected, accessCode });
+      update({ personaPrompts: prompts });
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+        // The code turned out invalid/exhausted — this is the first real
+        // check it's had, so send the user back to the gate with why.
+        setUnlocked(false);
+        setGateError(e.message);
+      } else {
+        setPromptsError(errorMessage(e));
+      }
+    } finally {
+      setPromptsLoading(false);
+    }
+  }, [state.personas, state.brand, state.industry, accessCode, update]);
 
-      let i = 0;
-      const tick = () => {
-        if (i >= selected.length) {
-          runTimerRef.current = setTimeout(() => {
-            setState(prev => ({ ...prev, screen: 'results' }));
-          }, 600);
-          return;
-        }
-        const pid = selected[i].id;
-        setState(prev => ({
-          ...prev,
-          runStatuses: { ...prev.runStatuses, [pid]: 'running' as RunStatus },
-          runProgress: Math.round((i / selected.length) * 100),
-        }));
-        runTimerRef.current = setTimeout(() => {
-          setState(prev => ({
-            ...prev,
-            runStatuses: { ...prev.runStatuses, [pid]: 'done' as RunStatus },
-            runProgress: Math.round(((i + 1) / selected.length) * 100),
-          }));
-          i++;
-          runTimerRef.current = setTimeout(tick, 200);
-        }, RUN_SPEED);
-      };
+  const launchAnalysis = useCallback(async () => {
+    const selected = state.personas.filter(p => p.selected);
+    if (selected.length === 0) return;
 
-      runTimerRef.current = setTimeout(tick, 400);
-      return { ...s, screen: 'running', runProgress: 0, runStatuses: {} };
-    });
-  }, []);
+    setRunError(null);
+    setLiveResults({});
+    setAnalysisResult(null);
+    update({ screen: 'running', runProgress: 0, runStatuses: {} });
 
-  useEffect(() => () => { if (runTimerRef.current) clearTimeout(runTimerRef.current); }, []);
+    try {
+      const jobId = await startAnalysis({
+        brand: state.brand,
+        industry: state.industry,
+        competitors: state.competitors,
+        personas: selected,
+        prompts: state.personaPrompts,
+        accessCode,
+      });
+
+      let settledCount = 0;
+      closeStreamRef.current = streamAnalysis(jobId, {
+        onPersona: event => {
+          setState(s => ({ ...s, runStatuses: { ...s.runStatuses, [event.personaId]: event.status } }));
+          if (event.result) {
+            setLiveResults(r => ({ ...r, [event.personaId]: event.result! }));
+          }
+          if (event.status === 'done' || event.status === 'error') {
+            settledCount++;
+            update({ runProgress: Math.round((settledCount / selected.length) * 100) });
+          }
+        },
+        onComplete: result => {
+          setAnalysisResult(normalizeResult(result));
+          update({ screen: 'results' });
+        },
+        onError: message => setRunError(message),
+      });
+    } catch (e) {
+      setRunError(errorMessage(e));
+    }
+  }, [state.personas, state.brand, state.industry, state.competitors, state.personaPrompts, accessCode, update]);
+
+  useEffect(() => () => closeStream(), [closeStream]);
 
   const { screen, step, query, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, runProgress, runStatuses, personaPrompts, promptsExpanded } = state;
 
-  const getPersonaPrompts = useCallback((id: string) => getPersonaPromptsFor(state, id), [state]);
+  const getPersonaPrompts = useCallback((id: string) => personaPrompts[id] ?? [], [personaPrompts]);
 
   const onToggleExpandPrompt = useCallback((id: string) => {
     setState(s => ({ ...s, promptsExpanded: { ...s.promptsExpanded, [id]: s.promptsExpanded[id] === false ? true : false } }));
   }, []);
 
   const onAddPrompt = useCallback((id: string) => {
-    setState(s => {
-      const arr = getPersonaPromptsFor(s, id);
-      return { ...s, personaPrompts: { ...s.personaPrompts, [id]: [...arr, ''] }, promptsExpanded: { ...s.promptsExpanded, [id]: true } };
-    });
+    setState(s => ({
+      ...s,
+      personaPrompts: { ...s.personaPrompts, [id]: [...(s.personaPrompts[id] ?? []), ''] },
+      promptsExpanded: { ...s.promptsExpanded, [id]: true },
+    }));
   }, []);
 
   const onEditPrompt = useCallback((id: string, idx: number, val: string) => {
     setState(s => {
-      const arr = [...getPersonaPromptsFor(s, id)];
+      const arr = [...(s.personaPrompts[id] ?? [])];
       arr[idx] = val;
       return { ...s, personaPrompts: { ...s.personaPrompts, [id]: arr } };
     });
@@ -189,13 +241,13 @@ export default function App() {
 
   const onRemovePrompt = useCallback((id: string, idx: number) => {
     setState(s => {
-      const arr = getPersonaPromptsFor(s, id).filter((_, i) => i !== idx);
+      const arr = (s.personaPrompts[id] ?? []).filter((_, i) => i !== idx);
       return { ...s, personaPrompts: { ...s.personaPrompts, [id]: arr.length ? arr : [''] } };
     });
   }, []);
 
   const wizardProps = {
-    step, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, getPersonaPrompts,
+    step, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, promptsLoading, promptsError, getPersonaPrompts,
     onBrand: (v: string) => update({ brand: v }),
     onIndustry: (v: string) => update({ industry: v }),
     onRemoveCompetitor: (c: string) => update({ competitors: competitors.filter(x => x !== c) }),
@@ -228,7 +280,10 @@ export default function App() {
     },
     onToggleModel: (id: string) => update({ models: models.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m) }),
     onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt,
-    onNextStep: () => update({ step: Math.min(5, step + 1) }),
+    onNextStep: () => {
+      if (step === 3) { goToPrompts(); return; }
+      update({ step: Math.min(5, step + 1) });
+    },
     onPrevStep: () => update({ step: Math.max(1, step - 1) }),
     onGoHome: goHome,
     onOpenHistory: () => update({ screen: 'history' }),
@@ -238,20 +293,21 @@ export default function App() {
 
   if (IS_ADMIN_ROUTE) {
     if (!adminAuthed) {
-      return <AdminLogin error={adminError} onSubmit={handleAdminLogin} />;
+      return <AdminLogin error={adminError} loading={adminLoading} onSubmit={handleAdminLogin} />;
     }
     return (
       <AdminCodes
-        codes={accessCodes}
+        codes={adminCodes}
+        loading={genLoading}
+        error={genError}
         onGenerate={handleGenerateCode}
-        onRevoke={handleRevokeCode}
         onBack={() => { window.location.href = window.location.pathname; }}
       />
     );
   }
 
   if (!unlocked) {
-    return <AccessGate error={gateError} onSubmit={handleVerifyCode} />;
+    return <AccessGate error={gateError} onSubmit={handleSubmitCode} />;
   }
 
   return (
@@ -282,22 +338,28 @@ export default function App() {
           personas={personas}
           runStatuses={runStatuses}
           runProgress={runProgress}
+          error={runError}
+          onBack={goHome}
         />
       )}
 
-      {screen === 'results' && (
+      {screen === 'results' && analysisResult && (
         <Results
           brand={brand}
           industry={industry}
           personas={personas}
           competitors={competitors}
+          results={liveResults}
+          overview={analysisResult.overview}
+          products={analysisResult.products}
+          sources={analysisResult.sources}
           onGoHome={goHome}
           onOpenActivation={() => update({ screen: 'activation' })}
         />
       )}
 
       {screen === 'activation' && (
-        <Activation brand={brand} onBack={() => update({ screen: 'results' })} />
+        <Activation brand={brand} sitelist={analysisResult?.sitelist ?? []} onBack={() => update({ screen: 'results' })} />
       )}
 
       {screen === 'history' && <History onGoHome={goHome} />}

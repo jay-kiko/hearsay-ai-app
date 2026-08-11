@@ -1,17 +1,21 @@
 import { Fragment, useState } from 'react';
-import type { Persona } from '../types';
-import { RESULTS, PRODUCTS, CITATIONS, PUBLISHERS, COMMUNITIES } from '../data';
+import type { Persona, PersonaResult, Product, Overview, Sources, Sentiment } from '../types';
 
 interface ResultsProps {
   brand: string;
   industry: string;
   personas: Persona[];
   competitors: string[];
+  results: Record<string, PersonaResult>;
+  overview: Overview;
+  products: Product[];
+  sources: Sources;
   onGoHome: () => void;
   onOpenActivation: () => void;
 }
 
 const ACCENT = '#2D6AE0';
+const SENTIMENT_COLOR: Record<Sentiment, string> = { Positive: '#1E9E6A', Neutral: '#8A8A8A', Negative: '#D2603F' };
 
 function hexA(hex: string, alpha: number): string {
   const clean = hex.replace('#', '');
@@ -36,7 +40,7 @@ function VisibilityRing({ score }: { score: number }) {
   );
 }
 
-function HeatmapChart({ personas }: { personas: Persona[] }) {
+function HeatmapChart({ personas, results }: { personas: Persona[]; results: Record<string, PersonaResult> }) {
   const selected = personas.filter(p => p.selected);
   const cols = ['Visibility', 'Sentiment', 'Rank', 'Presence'];
 
@@ -58,7 +62,7 @@ function HeatmapChart({ personas }: { personas: Persona[] }) {
           <div key={c} className="text-center text-[10px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase pb-2.5">{c}</div>
         ))}
         {selected.map(p => {
-          const r = RESULTS[p.id];
+          const r = results[p.id];
           const mentioned = !!r?.mentioned;
           const vals = [mentioned ? (r?.vis ?? 0) : 0, mentioned ? sentimentScore(r!.sentiment) : 8, mentioned ? rankScore(r!.rank) : 8, mentioned ? 90 : 10];
           const labels: (string | number)[] = [mentioned ? (r?.vis ?? 0) : '–', mentioned ? r!.sentiment[0] : '–', mentioned ? `#${r!.rank}` : '–', mentioned ? 'Yes' : 'No'];
@@ -81,14 +85,16 @@ function HeatmapChart({ personas }: { personas: Persona[] }) {
   );
 }
 
-function CompetitorBarChart() {
-  const data = PRODUCTS.slice(0, 5);
-  const W = 560, H = 250, padT = 26, padB = 44, max = 8, x0 = 26;
-  const innerW = W - x0 - 20, bw = 60, gap = (innerW - data.length * bw) / (data.length - 1), chartH = H - padT - padB;
+function CompetitorBarChart({ products }: { products: Product[] }) {
+  const data = products.slice(0, 5);
+  const W = 560, H = 250, padT = 26, padB = 44, x0 = 26;
+  const max = Math.max(1, ...data.map(d => d.count));
+  const innerW = W - x0 - 20, bw = 60, gap = data.length > 1 ? (innerW - data.length * bw) / (data.length - 1) : 0, chartH = H - padT - padB;
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(f * max));
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block' }}>
-      {[0, 2, 4, 6, 8].map(g => {
+      {ticks.map(g => {
         const y = padT + chartH - (g / max) * chartH;
         return (
           <g key={g}>
@@ -111,15 +117,15 @@ function CompetitorBarChart() {
   );
 }
 
-function ShareOfVoiceChart() {
+function ShareOfVoiceChart({ products }: { products: Product[] }) {
   const grays = ['#D7DEE9', '#C7D0DE', '#B7C2D3', '#A7B4C8', '#97A6BD'];
   let gi = 0;
-  const colored = PRODUCTS.map(d => ({ ...d, color: d.isBrand ? ACCENT : grays[gi++ % grays.length] }));
+  const colored = products.map(d => ({ ...d, color: d.isBrand ? ACCENT : grays[gi++ % grays.length] }));
   const S = 200, c = S / 2, r = 78, rw = 26;
   let acc = -90;
   const brandShare = colored.find(d => d.isBrand)?.share ?? 0;
 
-  const arcs = colored.map(d => {
+  const arcs = colored.filter(d => d.share > 0).map(d => {
     const a0 = acc, a1 = acc + (d.share / 100) * 360;
     acc = a1;
     const large = a1 - a0 > 180 ? 1 : 0;
@@ -149,10 +155,10 @@ function ShareOfVoiceChart() {
   );
 }
 
-function ProductsMentioned() {
+function ProductsMentioned({ products }: { products: Product[] }) {
   return (
     <div className="flex flex-col gap-2.5">
-      {PRODUCTS.map(p => (
+      {products.map(p => (
         <div key={p.name} className="flex items-center gap-3">
           <div className="w-[120px] text-[13.5px] text-[#333] whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0" style={{ fontWeight: p.isBrand ? 700 : 500 }}>{p.name}</div>
           <div className="flex-1 h-[9px] bg-[#F2F2F2] rounded-full overflow-hidden">
@@ -210,19 +216,21 @@ function RadarChart() {
   );
 }
 
-export function Results({ brand, industry, personas, competitors, onGoHome, onOpenActivation }: ResultsProps) {
-  const [openResult, setOpenResult] = useState<string | null>('p1');
+export function Results({ brand, industry, personas, results, overview, products, sources, onGoHome, onOpenActivation }: ResultsProps) {
   const selected = personas.filter(p => p.selected);
-  const mentioned = selected.filter(p => RESULTS[p.id]?.mentioned).length;
-  const positiveCount = selected.filter(p => RESULTS[p.id]?.sentiment === 'Positive').length;
-  const neutralCount = selected.filter(p => RESULTS[p.id]?.sentiment === 'Neutral').length;
+  const [openResult, setOpenResult] = useState<string | null>(selected[0]?.id ?? null);
+  const positiveCount = selected.filter(p => results[p.id]?.sentiment === 'Positive').length;
+  const neutralCount = selected.filter(p => results[p.id]?.sentiment === 'Neutral').length;
+  const negativeCount = selected.filter(p => results[p.id]?.sentiment === 'Negative').length;
+  const topCompetitorCount = overview.topCompetitor ? products.find(p => p.name === overview.topCompetitor)?.count ?? 0 : 0;
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
     <div className="max-w-[1080px] mx-auto px-7 py-10 pb-[110px] animate-fadeUp">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4 mb-7">
         <div>
-          <div className="text-[13px] text-[#999] font-semibold tracking-[0.03em]">RESULTS · Jun 28, 2026</div>
+          <div className="text-[13px] text-[#999] font-semibold tracking-[0.03em]">RESULTS · {today}</div>
           <h2 className="text-[32px] tracking-[-0.02em] font-bold mt-1.5 mb-0">{brand}</h2>
           <div className="text-[14.5px] text-[#888] mt-[3px]">{industry} · {selected.length} personas · Claude</div>
         </div>
@@ -235,10 +243,16 @@ export function Results({ brand, industry, personas, competitors, onGoHome, onOp
         </div>
       </div>
 
+      {overview.failedCount > 0 && (
+        <div className="bg-[#FBEDE8] border border-[#F0D2C4] rounded-[12px] px-[18px] py-3 text-[13.5px] text-[#8a4530] mb-7">
+          {overview.failedCount} of {overview.failedCount + overview.total} persona {overview.failedCount === 1 ? 'query' : 'queries'} failed to run and {overview.failedCount === 1 ? "isn't" : "aren't"} reflected below.
+        </div>
+      )}
+
       {/* Overview cards */}
       <div className="grid grid-cols-4 gap-4 mb-9">
         <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] flex items-center gap-4">
-          <VisibilityRing score={72} />
+          <VisibilityRing score={overview.visibilityScore} />
           <div>
             <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Visibility Score</div>
             <div className="text-[13.5px] text-[#666] mt-1.5 leading-snug">Solid presence across most personas</div>
@@ -246,21 +260,21 @@ export function Results({ brand, industry, personas, competitors, onGoHome, onOp
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px]">
           <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Mention Rate</div>
-          <div className="text-[38px] font-bold tracking-[-0.02em] mt-2.5">{mentioned}<span className="text-[#C8C8C8] text-[26px]"> / {selected.length}</span></div>
+          <div className="text-[38px] font-bold tracking-[-0.02em] mt-2.5">{overview.mentioned}<span className="text-[#C8C8C8] text-[26px]"> / {overview.total}</span></div>
           <div className="text-[13px] text-[#888] mt-1">persona queries mentioned you</div>
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px]">
           <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Avg. Sentiment</div>
           <div className="flex items-center gap-[9px] mt-[14px]">
-            <div className="w-3 h-3 rounded-full bg-[#1E9E6A]" />
-            <span className="text-2xl font-bold">Positive</span>
+            <div className="w-3 h-3 rounded-full" style={{ background: SENTIMENT_COLOR[overview.avgSentiment] }} />
+            <span className="text-2xl font-bold">{overview.avgSentiment}</span>
           </div>
-          <div className="text-[13px] text-[#888] mt-2">{positiveCount} positive · {neutralCount} neutral · 0 negative</div>
+          <div className="text-[13px] text-[#888] mt-2">{positiveCount} positive · {neutralCount} neutral · {negativeCount} negative</div>
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px]">
           <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Top Competitor</div>
-          <div className="text-[26px] font-bold mt-3">{competitors[0]}</div>
-          <div className="text-[13px] text-[#888] mt-1.5">mentioned in 7 queries</div>
+          <div className="text-[26px] font-bold mt-3">{overview.topCompetitor ?? '—'}</div>
+          <div className="text-[13px] text-[#888] mt-1.5">{overview.topCompetitor ? `mentioned in ${topCompetitorCount} queries` : 'no competitor surfaced'}</div>
         </div>
       </div>
 
@@ -269,12 +283,12 @@ export function Results({ brand, industry, personas, competitors, onGoHome, onOp
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6">
           <div className="text-[15px] font-semibold mb-1">Share of Voice</div>
           <div className="text-[13px] text-[#999] mb-[18px]">Your brand's share of all product mentions across responses</div>
-          <ShareOfVoiceChart />
+          <ShareOfVoiceChart products={products} />
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6">
           <div className="text-[15px] font-semibold mb-1">Products mentioned</div>
           <div className="text-[13px] text-[#999] mb-4">Every brand AI responses surfaced, ranked by mention count</div>
-          <ProductsMentioned />
+          <ProductsMentioned products={products} />
         </div>
       </div>
 
@@ -282,7 +296,7 @@ export function Results({ brand, industry, personas, competitors, onGoHome, onOp
       <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-[14px] mt-9">Personas analysed · prompts &amp; AI responses</h3>
       <div className="flex flex-col gap-2.5 mb-10">
         {selected.map(p => {
-          const r = RESULTS[p.id];
+          const r = results[p.id];
           if (!r) return null;
           const isOpen = openResult === p.id;
 
@@ -332,7 +346,8 @@ export function Results({ brand, industry, personas, competitors, onGoHome, onOp
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px]">
           <div className="text-[14.5px] font-semibold mb-[14px]">Citation sources</div>
           <div className="flex flex-col gap-[13px]">
-            {CITATIONS.map(c => (
+            {sources.citations.length === 0 && <div className="text-[13px] text-[#999]">No citations found.</div>}
+            {sources.citations.map(c => (
               <div key={c.domain}>
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-[13px] font-semibold text-[#2D6AE0]">{c.domain}</span>
@@ -346,7 +361,8 @@ export function Results({ brand, industry, personas, competitors, onGoHome, onOp
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px]">
           <div className="text-[14.5px] font-semibold mb-[14px]">Publisher list</div>
           <div className="flex flex-col gap-3">
-            {PUBLISHERS.map(p => (
+            {sources.publishers.length === 0 && <div className="text-[13px] text-[#999]">No publishers found.</div>}
+            {sources.publishers.map(p => (
               <div key={p.name} className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-[13.5px] font-semibold text-[#1b1b1b]">{p.name}</div>
@@ -360,7 +376,8 @@ export function Results({ brand, industry, personas, competitors, onGoHome, onOp
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px]">
           <div className="text-[14.5px] font-semibold mb-[14px]">Community list</div>
           <div className="flex flex-col gap-3">
-            {COMMUNITIES.map(cm => (
+            {sources.communities.length === 0 && <div className="text-[13px] text-[#999]">No community threads found.</div>}
+            {sources.communities.map(cm => (
               <div key={cm.name} className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-[13.5px] font-semibold text-[#1b1b1b]">{cm.name}</div>
@@ -378,17 +395,17 @@ export function Results({ brand, industry, personas, competitors, onGoHome, onOp
       <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 mb-4">
         <div className="text-[15px] font-semibold mb-1">Persona signal matrix</div>
         <div className="text-[13px] text-[#999] mb-[18px]">How each persona scored across the key dimensions</div>
-        <HeatmapChart personas={personas} />
+        <HeatmapChart personas={personas} results={results} />
       </div>
       <div className="grid grid-cols-[1.15fr_1fr] gap-4">
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6">
           <div className="text-[15px] font-semibold mb-1">Competitor comparison</div>
           <div className="text-[13px] text-[#999] mb-[18px]">Mention frequency vs. competitors across all persona queries</div>
-          <CompetitorBarChart />
+          <CompetitorBarChart products={products} />
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6">
           <div className="text-[15px] font-semibold mb-1">Brand strength by category</div>
-          <div className="text-[13px] text-[#999] mb-2">Relative strength across evaluation themes</div>
+          <div className="text-[13px] text-[#999] mb-2">Illustrative — not yet computed from live data</div>
           <RadarChart />
         </div>
       </div>
