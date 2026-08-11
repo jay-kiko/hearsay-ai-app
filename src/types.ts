@@ -85,6 +85,13 @@ export interface Community {
   mentions: number;
 }
 
+export interface AccessCode {
+  code: string;
+  usesTotal: number;
+  usesRemaining: number;
+  createdAt: string;
+}
+
 export interface SitelistEntry {
   name: string;
   category: string;

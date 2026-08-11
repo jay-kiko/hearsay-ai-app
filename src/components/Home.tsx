@@ -20,7 +20,10 @@ const PILLS = [
 function Hero({ query, onQuery, onStartWizard, onOpenHistory, searchRef }: HomeProps) {
   return (
     <div className="max-w-[780px] mx-auto px-6 py-[84px] pb-[100px] text-center animate-fadeUp">
-      <div className="items-center text-[36px]">hearsay<span className="text-[42px] font-bold">.</span>ai</div>
+      <div className="flex items-center justify-center gap-2 text-[36px]">
+        <span>hearsay<span className="text-[42px] font-bold">.</span>ai</span>
+        <span className="text-[11px] font-bold tracking-[0.05em] uppercase text-[#2D6AE0] bg-[#EEF3FE] rounded-full px-2 py-[3px] self-start mt-1.5">Beta</span>
+      </div>
       <div className="inline-flex items-center gap-[9px] bg-white border border-[#ECECEC] rounded-full px-[14px] py-1.5 pl-1.5 mb-[30px]">
         <span className="bg-[#2D6AE0] text-white text-[10.5px] font-bold tracking-[0.05em] rounded-full px-2 py-[3px]">NEW</span>
         <span className="text-[13px] text-[#555]">Now analyzing visibility across buyer personas</span>
@@ -182,8 +185,7 @@ function SectionUseCases() {
 const PLANS = [
   {
     name: 'Free',
-    price: '$0',
-    period: 'forever',
+    price: '--',
     description: 'For individuals exploring AI visibility for the first time.',
     features: ['5 analyses per month', 'Up to 5 personas per run', 'Claude only', 'PDF export', 'Community support'],
     cta: 'Get started free',
@@ -191,8 +193,7 @@ const PLANS = [
   },
   {
     name: 'Pro',
-    price: '$49',
-    period: 'per month',
+    price: '--',
     description: 'For teams actively managing AI brand presence.',
     features: ['Unlimited analyses', 'Up to 15 personas per run', 'All AI models', 'CSV + PDF export', 'Scheduled re-runs', 'Email reports', 'Priority support'],
     cta: 'Start free trial',
@@ -200,8 +201,7 @@ const PLANS = [
   },
   {
     name: 'Enterprise',
-    price: 'Custom',
-    period: 'contact us',
+    price: '--',
     description: 'For orgs that need custom limits, SLAs, and white-labelling.',
     features: ['Unlimited everything', 'White-label reports', 'API access', 'SSO / SAML', 'Dedicated CSM', 'Custom model integrations', 'SLA guarantee'],
     cta: 'Talk to sales',
@@ -228,9 +228,6 @@ function SectionPricing() {
               <div className={`text-[12.5px] font-bold uppercase tracking-[0.07em] mb-5 ${plan.highlight ? 'text-[rgba(255,255,255,0.65)]' : 'text-[#999]'}`}>{plan.name}</div>
               <div className="mb-1">
                 <span className={`text-[44px] font-bold tracking-[-0.03em] ${plan.highlight ? 'text-white' : 'text-[#141414]'}`}>{plan.price}</span>
-                {plan.price !== 'Custom' && (
-                  <span className={`text-[14px] ml-1.5 ${plan.highlight ? 'text-[rgba(255,255,255,0.6)]' : 'text-[#999]'}`}>/{plan.period.split(' ')[1] ?? plan.period}</span>
-                )}
               </div>
               <p className={`text-[13.5px] mb-7 leading-relaxed ${plan.highlight ? 'text-[rgba(255,255,255,0.75)]' : 'text-[#777]'}`}>{plan.description}</p>
               <ul className="space-y-2.5 mb-8 flex-1">

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { AppState, NewPersona, RunStatus, Persona } from './types';
-import { INITIAL_PERSONAS, INITIAL_MODELS, RESULTS } from './data';
+import type { AppState, NewPersona, RunStatus, Persona, AccessCode } from './types';
+import { INITIAL_PERSONAS, INITIAL_MODELS, RESULTS, INITIAL_ACCESS_CODES } from './data';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -9,6 +9,24 @@ import { Results } from './components/Results';
 import { History } from './components/History';
 import { Settings } from './components/Settings';
 import { Activation } from './components/Activation';
+import { AccessGate } from './components/AccessGate';
+import { AdminLogin } from './components/AdminLogin';
+import { AdminCodes } from './components/AdminCodes';
+
+const IS_ADMIN_ROUTE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin');
+
+function generateCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I — avoids visual ambiguity
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += chars[bytes[i] % chars.length];
+  return s.match(/.{1,4}/g)!.join('-');
+}
+
+function today(): string {
+  return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 const RUN_SPEED = 650;
 
@@ -53,6 +71,41 @@ export default function App() {
   const [state, setState] = useState<AppState>(INITIAL_STATE);
   const searchRef = useRef<HTMLTextAreaElement>(null);
   const runTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [unlocked, setUnlocked] = useState(false);
+  const [gateError, setGateError] = useState<string | null>(null);
+  const [accessCodes, setAccessCodes] = useState<AccessCode[]>(INITIAL_ACCESS_CODES);
+
+  const [adminAuthed, setAdminAuthed] = useState(false);
+  const [adminError, setAdminError] = useState<string | null>(null);
+
+  const handleVerifyCode = useCallback((code: string) => {
+    const match = accessCodes.find(c => c.code === code && c.usesRemaining > 0);
+    if (!match) {
+      setGateError('Invalid or exhausted access code.');
+      return;
+    }
+    setAccessCodes(cs => cs.map(c => c.code === code ? { ...c, usesRemaining: c.usesRemaining - 1 } : c));
+    setGateError(null);
+    setUnlocked(true);
+  }, [accessCodes]);
+
+  const handleAdminLogin = useCallback((username: string, password: string) => {
+    if (username === import.meta.env.VITE_ADMIN_USERNAME && password === import.meta.env.VITE_ADMIN_PASSWORD) {
+      setAdminError(null);
+      setAdminAuthed(true);
+    } else {
+      setAdminError('Incorrect username or password.');
+    }
+  }, []);
+
+  const handleGenerateCode = useCallback((usesTotal: number) => {
+    setAccessCodes(cs => [...cs, { code: generateCode(), usesTotal, usesRemaining: usesTotal, createdAt: today() }]);
+  }, []);
+
+  const handleRevokeCode = useCallback((code: string) => {
+    setAccessCodes(cs => cs.map(c => c.code === code ? { ...c, usesRemaining: 0 } : c));
+  }, []);
 
   const update = useCallback((patch: Partial<AppState>) => setState(s => ({ ...s, ...patch })), []);
 
@@ -182,6 +235,24 @@ export default function App() {
     onOpenSettings: () => update({ screen: 'settings' }),
     onLaunch: launchAnalysis,
   };
+
+  if (IS_ADMIN_ROUTE) {
+    if (!adminAuthed) {
+      return <AdminLogin error={adminError} onSubmit={handleAdminLogin} />;
+    }
+    return (
+      <AdminCodes
+        codes={accessCodes}
+        onGenerate={handleGenerateCode}
+        onRevoke={handleRevokeCode}
+        onBack={() => { window.location.href = window.location.pathname; }}
+      />
+    );
+  }
+
+  if (!unlocked) {
+    return <AccessGate error={gateError} onSubmit={handleVerifyCode} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">

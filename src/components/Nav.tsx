@@ -27,8 +27,9 @@ export function Nav({ screen, onGoHome, onOpenHistory, onOpenSettings, onFocusSe
   return (
     <nav className="h-[70px] flex items-center justify-between px-9 border-b border-[#ECECEC] bg-[rgba(250,250,250,0.82)] backdrop-blur-sm sticky top-0 z-50">
       {/* Logo */}
-      <div onClick={onGoHome} className="flex items-center cursor-pointer select-none">
+      <div onClick={onGoHome} className="flex items-center gap-2 cursor-pointer select-none">
         <img src={kikologo} alt="hearsay.ai" className="h-[45px] w-auto block mt-3" />
+        <span className="text-[10px] font-bold tracking-[0.05em] uppercase text-[#2D6AE0] bg-[#EEF3FE] rounded-full px-[7px] py-[2px]">Beta</span>
       </div>
 
       {isHome && (

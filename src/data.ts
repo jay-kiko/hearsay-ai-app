@@ -1,4 +1,9 @@
-import type { Persona, AIModel, PersonaResult, HistoryEntry, Product, Citation, Publisher, Community, SitelistEntry } from './types';
+import type { Persona, AIModel, PersonaResult, HistoryEntry, Product, Citation, Publisher, Community, SitelistEntry, AccessCode } from './types';
+
+export const INITIAL_ACCESS_CODES: AccessCode[] = [
+  { code: 'HEARSAY-PREVIEW', usesTotal: 25, usesRemaining: 25, createdAt: 'Aug 1, 2026' },
+  { code: 'DEMO-2026', usesTotal: 5, usesRemaining: 3, createdAt: 'Aug 8, 2026' },
+];
 
 export const INDUSTRIES = [
   'Project Management Software',
