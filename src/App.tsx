@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AccessCode, AnalysisResult, AppState, NewPersona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
-import { ApiError, generatePrompts, listCodes, mintCodes, startAnalysis, streamAnalysis } from './api';
+import { ApiError, detectBrand, generatePrompts, listCodes, mintCodes, startAnalysis, streamAnalysis } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -44,12 +44,6 @@ const INITIAL_STATE: AppState = {
   personaPrompts: {},
   promptsExpanded: {},
 };
-
-function parseBrand(query: string): string {
-  const words = query.trim().split(/\s+/);
-  if (words.length === 0 || query.trim() === '') return 'Your Brand';
-  return words.slice(0, 3).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
 
 export default function App() {
   const [state, setState] = useState<AppState>(INITIAL_STATE);
@@ -114,6 +108,8 @@ export default function App() {
   }, [adminSecret]);
 
   // ── Core app state ──────────────────────────────────────────────────
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [promptsError, setPromptsError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
@@ -133,6 +129,7 @@ export default function App() {
     setLiveResults({});
     setAnalysisResult(null);
     setPromptsError(null);
+    setDetectError(null);
     setState(s => ({ ...s, screen: 'home', step: 1, runStatuses: {}, runProgress: 0, personaPrompts: {} }));
   }, [closeStream]);
 
@@ -141,13 +138,24 @@ export default function App() {
     setTimeout(() => searchRef.current?.focus(), 50);
   }, []);
 
-  const startWizard = useCallback(() => {
-    setState(s => {
-      const q = s.query.trim() || 'Project management apps for growing software teams';
-      const brand = parseBrand(q);
-      return { ...s, screen: 'wizard', step: 1, query: q, brand };
-    });
-  }, []);
+  const startWizard = useCallback(async () => {
+    const q = state.query.trim() || 'Project management apps for growing software teams';
+    setDetecting(true);
+    setDetectError(null);
+    try {
+      const detected = await detectBrand({ query: q, accessCode });
+      update({ screen: 'wizard', step: 1, query: q, brand: detected.brand, industry: detected.industry, competitors: detected.competitors });
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+        setUnlocked(false);
+        setGateError(e.message);
+      } else {
+        setDetectError(errorMessage(e));
+      }
+    } finally {
+      setDetecting(false);
+    }
+  }, [state.query, accessCode, update]);
 
   const goToPrompts = useCallback(async () => {
     update({ step: 4 });
@@ -326,6 +334,8 @@ export default function App() {
           onQuery={v => update({ query: v })}
           onStartWizard={startWizard}
           onOpenHistory={() => update({ screen: 'history' })}
+          detecting={detecting}
+          detectError={detectError}
           searchRef={searchRef}
         />
       )}

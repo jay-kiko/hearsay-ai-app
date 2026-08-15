@@ -1,15 +1,5 @@
 import type { Persona, AIModel, HistoryEntry } from './types';
 
-export const INDUSTRIES = [
-  'Project Management Software',
-  'CRM Software',
-  'Cloud Hosting & Infrastructure',
-  'Design Tools',
-  'Marketing Automation',
-  'Analytics Platforms',
-  'Customer Support Software',
-];
-
 export const INITIAL_PERSONAS: Persona[] = [
   { id: 'p1', title: 'Enterprise CTO', initials: 'EC', desc: 'Evaluates tools that scale securely and integrate cleanly.', role: 'Owns technology strategy at a 5,000-person organization.', pains: 'Vendor lock-in, lengthy security reviews, integration debt.', criteria: 'SOC 2, SSO, API depth, roadmap stability.', selected: true, expanded: false },
   { id: 'p2', title: 'Marketing Director', initials: 'MD', desc: 'Wants visibility into campaigns and team workload.', role: 'Leads a 20-person marketing organization.', pains: 'Scattered tools, unclear reporting, missed deadlines.', criteria: 'Dashboards, integrations, fast adoption.', selected: true, expanded: false },

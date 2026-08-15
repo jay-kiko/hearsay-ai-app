@@ -1,4 +1,4 @@
-import type { AccessCode, AnalysisResult, Persona, PersonaEvent } from './types';
+import type { AccessCode, AnalysisResult, DetectResult, Persona, PersonaEvent } from './types';
 
 const BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -21,6 +21,16 @@ async function parseErrorDetail(res: Response): Promise<string> {
 
 function personaPayload(personas: Persona[]) {
   return personas.map(p => ({ id: p.id, title: p.title, role: p.role, pains: p.pains, criteria: p.criteria }));
+}
+
+export async function detectBrand(args: { query: string; accessCode: string }): Promise<DetectResult> {
+  const res = await fetch(`${BASE}/api/detect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: args.query, accessCode: args.accessCode }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
+  return res.json();
 }
 
 export async function generatePrompts(args: {

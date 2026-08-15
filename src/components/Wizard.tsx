@@ -1,5 +1,4 @@
 import type { Persona, AIModel, NewPersona } from '../types';
-import { INDUSTRIES } from '../data';
 
 interface WizardProps {
   step: number;
@@ -91,9 +90,7 @@ function Step1({ brand, industry, competitors, newCompetitor, onBrand, onIndustr
             <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">
               Industry / Category <span className="text-[#2D6AE0] normal-case tracking-normal font-medium">· auto-detected</span>
             </label>
-            <select value={industry} onChange={e => onIndustry(e.target.value)} className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[15px] text-[#222] bg-white cursor-pointer focus:border-[#2D6AE0] focus:outline-none transition-colors">
-              {INDUSTRIES.map(ind => <option key={ind} value={ind}>{ind}</option>)}
-            </select>
+            <input value={industry} onChange={e => onIndustry(e.target.value)} className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[15px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
           </div>
         </div>
 

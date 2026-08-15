@@ -126,6 +126,12 @@ export interface AnalysisResult {
   sitelist: SitelistEntry[];
 }
 
+export interface DetectResult {
+  brand: string;
+  industry: string;
+  competitors: string[];
+}
+
 export interface PersonaEvent {
   personaId: string;
   status: RunStatus;

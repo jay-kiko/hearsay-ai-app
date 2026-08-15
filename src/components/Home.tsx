@@ -5,6 +5,8 @@ interface HomeProps {
   onQuery: (val: string) => void;
   onStartWizard: () => void;
   onOpenHistory: () => void;
+  detecting: boolean;
+  detectError: string | null;
   searchRef: React.RefObject<HTMLTextAreaElement>;
 }
 
@@ -17,7 +19,7 @@ const PILLS = [
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
-function Hero({ query, onQuery, onStartWizard, onOpenHistory, searchRef }: HomeProps) {
+function Hero({ query, onQuery, onStartWizard, onOpenHistory, detecting, detectError, searchRef }: HomeProps) {
   return (
     <div className="max-w-[780px] mx-auto px-6 py-[84px] pb-[100px] text-center animate-fadeUp">
       <div className="flex items-center justify-center gap-2 text-[36px]">
@@ -43,15 +45,20 @@ function Hero({ query, onQuery, onStartWizard, onOpenHistory, searchRef }: HomeP
           onChange={e => onQuery(e.target.value)}
           placeholder="Describe the brand or product you want to evaluate..."
           className="w-full border-none resize-none text-base leading-relaxed px-4 pt-4 pb-2 h-[84px] text-[#222] bg-transparent"
-          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onStartWizard(); }}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !detecting) onStartWizard(); }}
         />
         <div className="flex items-center justify-between px-4 pb-2 pt-1.5">
           <span className="text-[12.5px] text-[#9A9A9A]">We'll handle the hard part — personas, prompts, and analysis.</span>
-          <button onClick={onStartWizard} className="flex items-center gap-2 bg-[#2D6AE0] text-white border-none rounded-[11px] px-5 py-[11px] text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors">
-            Analyze <span className="text-[15px]">→</span>
+          <button
+            onClick={onStartWizard}
+            disabled={detecting}
+            className="flex items-center gap-2 bg-[#2D6AE0] text-white border-none rounded-[11px] px-5 py-[11px] text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {detecting ? 'Analyzing…' : <>Analyze <span className="text-[15px]">→</span></>}
           </button>
         </div>
       </div>
+      {detectError && <div className="text-[13px] text-[#C2543A] mt-3">{detectError}</div>}
 
       <div className="flex flex-wrap gap-2.5 justify-center mt-6">
         {PILLS.map(pill => (
