@@ -31,19 +31,59 @@ export async function checkAccessStatus(code: string): Promise<AccessStatus> {
 }
 
 export async function detectBrand(args: { query: string; accessCode: string }): Promise<DetectResult> {
-  const res = await fetch(`${BASE}/api/detect`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: args.query, accessCode: args.accessCode }),
-  });
+  // A real web-search pass plus a structuring call, server-side — routinely
+  // 15-30s, longer for ambiguous names. Without a client-side ceiling a truly
+  // hung request would just leave the caller waiting forever.
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api/detect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: args.query, accessCode: args.accessCode }),
+      signal: AbortSignal.timeout(60_000),
+    });
+  } catch (e) {
+    if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      throw new ApiError(0, "That took too long to respond. Please try again — it's usually faster.");
+    }
+    throw e;
+  }
   if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
   return res.json();
+}
+
+export async function getCategories(args: {
+  brand: string;
+  industry: string;
+  competitors: string[];
+  buyerContext?: string;
+  brandSummary?: string;
+  accessCode: string;
+}): Promise<string[]> {
+  const res = await fetch(`${BASE}/api/categories`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      brand: args.brand,
+      industry: args.industry,
+      competitors: args.competitors,
+      buyerContext: args.buyerContext,
+      brandSummary: args.brandSummary,
+      accessCode: args.accessCode,
+    }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
+  const body = await res.json();
+  return body.categories;
 }
 
 export async function generatePersonas(args: {
   brand: string;
   industry: string;
   competitors: string[];
+  buyerContext?: string;
+  brandSummary?: string;
+  market?: string;
   accessCode: string;
 }): Promise<GeneratedPersona[]> {
   const res = await fetch(`${BASE}/api/generate-personas`, {
@@ -53,6 +93,9 @@ export async function generatePersonas(args: {
       brand: args.brand,
       industry: args.industry,
       competitors: args.competitors,
+      buyerContext: args.buyerContext,
+      brandSummary: args.brandSummary,
+      market: args.market,
       accessCode: args.accessCode,
     }),
   });
@@ -65,6 +108,9 @@ export async function generatePrompts(args: {
   brand: string;
   industry: string;
   personas: Persona[];
+  buyerContext?: string;
+  brandSummary?: string;
+  market?: string;
   accessCode: string;
 }): Promise<Record<string, string[]>> {
   const res = await fetch(`${BASE}/api/prompts`, {
@@ -74,6 +120,9 @@ export async function generatePrompts(args: {
       brand: args.brand,
       industry: args.industry,
       personas: personaPayload(args.personas),
+      buyerContext: args.buyerContext,
+      brandSummary: args.brandSummary,
+      market: args.market,
       accessCode: args.accessCode,
     }),
   });
@@ -88,6 +137,9 @@ export async function startAnalysis(args: {
   competitors: string[];
   personas: Persona[];
   prompts: Record<string, string[]>;
+  buyerContext?: string;
+  brandSummary?: string;
+  market?: string;
   accessCode: string;
 }): Promise<string> {
   const res = await fetch(`${BASE}/api/analysis`, {
@@ -99,6 +151,9 @@ export async function startAnalysis(args: {
       competitors: args.competitors,
       personas: personaPayload(args.personas),
       prompts: args.prompts,
+      buyerContext: args.buyerContext,
+      brandSummary: args.brandSummary,
+      market: args.market,
       accessCode: args.accessCode,
     }),
   });

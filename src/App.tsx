@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AccessCode, AnalysisResult, AppState, NewPersona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
-import { ApiError, checkAccessStatus, detectBrand, generatePersonas, generatePrompts, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis } from './api';
+import { ApiError, checkAccessStatus, detectBrand, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -31,6 +31,23 @@ function errorMessage(e: unknown): string {
   return e instanceof ApiError ? e.message : 'Could not reach the backend. Is it running?';
 }
 
+// /api/detect is a plain synchronous POST, not SSE like /api/analysis — the
+// backend does a real web-search pass then a structuring call server-side
+// (routinely 15-30s), but there's no incremental state to reflect, so this is
+// purely cosmetic reassurance on a timer, not real progress.
+const DETECT_MESSAGE_INTERVAL_MS = 5_000;
+const DETECT_SLOW_AFTER_MS = 20_000;
+
+function truncateForMessage(s: string, max: number): string {
+  const trimmed = s.trim();
+  return trimmed.length > max ? `${trimmed.slice(0, max - 1)}…` : trimmed;
+}
+
+function detectMessagesFor(query: string): string[] {
+  const label = truncateForMessage(query, 40) || 'your brand';
+  return [`Looking up "${label}"…`, 'Searching the web for real competitors…', 'Confirming details…'];
+}
+
 // Backend sends share as a 0-1 fraction; the charts here render it as a
 // whole-number percentage.
 function normalizeResult(result: AnalysisResult): AnalysisResult {
@@ -44,6 +61,10 @@ const INITIAL_STATE: AppState = {
   brand: 'Flowstate',
   industry: 'Project Management Software',
   competitors: ['Asana', 'Monday.com', 'ClickUp', 'Notion'],
+  buyerContext: '',
+  brandSummary: '',
+  market: '',
+  customCategory: '',
   newCompetitor: '',
   addingPersona: false,
   newPersona: { name: '', role: '', industry: '', goals: '', pains: '', criteria: '' },
@@ -151,6 +172,12 @@ export default function App() {
   // ── Core app state ──────────────────────────────────────────────────
   const [detecting, setDetecting] = useState(false);
   const [detectError, setDetectError] = useState<string | null>(null);
+  const [detectMessage, setDetectMessage] = useState('');
+  const [detectSlow, setDetectSlow] = useState(false);
+  const detectTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
   const [personasLoading, setPersonasLoading] = useState(false);
   const [personasError, setPersonasError] = useState<string | null>(null);
   const [personasProgress, setPersonasProgress] = useState(0);
@@ -172,11 +199,15 @@ export default function App() {
     closeStream();
     if (personasTimerRef.current) clearInterval(personasTimerRef.current);
     personasTimerRef.current = null;
+    if (detectTimerRef.current) clearInterval(detectTimerRef.current);
+    detectTimerRef.current = null;
     setRunError(null);
     setLiveResults({});
     setAnalysisResult(null);
     setPromptsError(null);
     setDetectError(null);
+    setCategoriesError(null);
+    setCategories([]);
     setPersonasError(null);
     setState(s => ({ ...s, screen: 'home', step: 1, runStatuses: {}, runProgress: 0, personaPrompts: {} }));
   }, [closeStream]);
@@ -188,11 +219,39 @@ export default function App() {
 
   const startWizard = useCallback(async () => {
     const q = state.query.trim() || 'Project management apps for growing software teams';
+    const messages = detectMessagesFor(q);
     setDetecting(true);
     setDetectError(null);
+    setDetectSlow(false);
+    setDetectMessage(messages[0]);
+
+    const startedAt = Date.now();
+    detectTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= DETECT_SLOW_AFTER_MS) {
+        setDetectSlow(true);
+        if (detectTimerRef.current) clearInterval(detectTimerRef.current);
+        detectTimerRef.current = null;
+        return;
+      }
+      const idx = Math.min(messages.length - 1, Math.floor(elapsed / DETECT_MESSAGE_INTERVAL_MS));
+      setDetectMessage(messages[idx]);
+    }, 1000);
+
     try {
       const detected = await detectBrand({ query: q, accessCode });
-      update({ screen: 'wizard', step: 1, query: q, brand: detected.brand, industry: detected.industry, competitors: detected.competitors });
+      update({
+        screen: 'wizard',
+        step: 1,
+        query: q,
+        brand: detected.brand,
+        industry: detected.industry,
+        competitors: detected.competitors,
+        buyerContext: detected.buyerContext,
+        brandSummary: detected.brandSummary,
+        market: '',
+        customCategory: '',
+      });
     } catch (e) {
       if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
         lockOut(e.message);
@@ -200,12 +259,39 @@ export default function App() {
         setDetectError(errorMessage(e));
       }
     } finally {
+      if (detectTimerRef.current) clearInterval(detectTimerRef.current);
+      detectTimerRef.current = null;
       setDetecting(false);
     }
   }, [state.query, accessCode, update, lockOut]);
 
-  const goToPersonas = useCallback(async () => {
+  const goToCategories = useCallback(async () => {
     update({ step: 2 });
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+    try {
+      const result = await getCategories({
+        brand: state.brand,
+        industry: state.industry,
+        competitors: state.competitors,
+        buyerContext: state.buyerContext,
+        brandSummary: state.brandSummary,
+        accessCode,
+      });
+      setCategories(result);
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+        lockOut(e.message);
+      } else {
+        setCategoriesError(errorMessage(e));
+      }
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, [state.brand, state.industry, state.competitors, state.buyerContext, state.brandSummary, accessCode, lockOut, update]);
+
+  const goToPersonas = useCallback(async () => {
+    update({ step: 3 });
     setPersonasLoading(true);
     setPersonasError(null);
     setPersonasProgress(0);
@@ -223,7 +309,15 @@ export default function App() {
     }, 250);
 
     try {
-      const generated = await generatePersonas({ brand: state.brand, industry: state.industry, competitors: state.competitors, accessCode });
+      const generated = await generatePersonas({
+        brand: state.brand,
+        industry: state.industry,
+        competitors: state.competitors,
+        buyerContext: state.buyerContext,
+        brandSummary: state.brandSummary,
+        market: state.market,
+        accessCode,
+      });
       update({ personas: generated.map(p => ({ ...p, selected: true, expanded: false })) });
     } catch (e) {
       if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
@@ -236,15 +330,23 @@ export default function App() {
       personasTimerRef.current = null;
       setPersonasLoading(false);
     }
-  }, [state.brand, state.industry, state.competitors, accessCode, update, lockOut]);
+  }, [state.brand, state.industry, state.competitors, state.buyerContext, state.brandSummary, state.market, accessCode, update, lockOut]);
 
   const goToPrompts = useCallback(async () => {
-    update({ step: 4 });
+    update({ step: 5 });
     setPromptsLoading(true);
     setPromptsError(null);
     try {
       const selected = state.personas.filter(p => p.selected);
-      const prompts = await generatePrompts({ brand: state.brand, industry: state.industry, personas: selected, accessCode });
+      const prompts = await generatePrompts({
+        brand: state.brand,
+        industry: state.industry,
+        personas: selected,
+        buyerContext: state.buyerContext,
+        brandSummary: state.brandSummary,
+        market: state.market,
+        accessCode,
+      });
       update({ personaPrompts: prompts });
     } catch (e) {
       if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
@@ -257,7 +359,7 @@ export default function App() {
     } finally {
       setPromptsLoading(false);
     }
-  }, [state.personas, state.brand, state.industry, accessCode, update, lockOut]);
+  }, [state.personas, state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, accessCode, update, lockOut]);
 
   const launchAnalysis = useCallback(async () => {
     const selected = state.personas.filter(p => p.selected);
@@ -275,6 +377,9 @@ export default function App() {
         competitors: state.competitors,
         personas: selected,
         prompts: state.personaPrompts,
+        buyerContext: state.buyerContext,
+        brandSummary: state.brandSummary,
+        market: state.market,
         accessCode,
       });
 
@@ -299,11 +404,11 @@ export default function App() {
     } catch (e) {
       setRunError(errorMessage(e));
     }
-  }, [state.personas, state.brand, state.industry, state.competitors, state.personaPrompts, accessCode, update]);
+  }, [state.personas, state.brand, state.industry, state.competitors, state.personaPrompts, state.buyerContext, state.brandSummary, state.market, accessCode, update]);
 
   useEffect(() => () => closeStream(), [closeStream]);
 
-  const { screen, step, query, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, runProgress, runStatuses, personaPrompts, promptsExpanded } = state;
+  const { screen, step, query, brand, industry, competitors, brandSummary, market, customCategory, newCompetitor, addingPersona, newPersona, personas, models, runProgress, runStatuses, personaPrompts, promptsExpanded } = state;
 
   const getPersonaPrompts = useCallback((id: string) => personaPrompts[id] ?? [], [personaPrompts]);
 
@@ -335,9 +440,12 @@ export default function App() {
   }, []);
 
   const wizardProps = {
-    step, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts,
+    step, brand, industry, competitors, brandSummary, market, customCategory, categories, categoriesLoading, categoriesError, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts,
     onBrand: (v: string) => update({ brand: v }),
     onIndustry: (v: string) => update({ industry: v }),
+    onBrandSummary: (v: string) => update({ brandSummary: v }),
+    onMarket: (v: string) => update({ market: v }),
+    onCustomCategory: (v: string) => update({ customCategory: v }),
     onRemoveCompetitor: (c: string) => update({ competitors: competitors.filter(x => x !== c) }),
     onNewCompetitor: (v: string) => update({ newCompetitor: v }),
     onAddCompetitor: () => {
@@ -369,9 +477,10 @@ export default function App() {
     onToggleModel: (id: string) => update({ models: models.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m) }),
     onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt,
     onNextStep: () => {
-      if (step === 1) { goToPersonas(); return; }
-      if (step === 3) { goToPrompts(); return; }
-      update({ step: Math.min(5, step + 1) });
+      if (step === 1) { goToCategories(); return; }
+      if (step === 2) { goToPersonas(); return; }
+      if (step === 4) { goToPrompts(); return; }
+      update({ step: Math.min(6, step + 1) });
     },
     onPrevStep: () => update({ step: Math.max(1, step - 1) }),
     onGoHome: goHome,
@@ -419,6 +528,7 @@ export default function App() {
           onOpenHistory={() => update({ screen: 'history' })}
           detecting={detecting}
           detectError={detectError}
+          detectMessage={detectSlow ? "This is taking a little longer than usual — ambiguous names can take a bit. Hang tight." : detectMessage}
           searchRef={searchRef}
         />
       )}

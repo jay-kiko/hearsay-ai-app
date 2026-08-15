@@ -133,6 +133,8 @@ export interface DetectResult {
   brand: string;
   industry: string;
   competitors: string[];
+  buyerContext: string;
+  brandSummary: string;
 }
 
 export interface GeneratedPersona {
@@ -159,6 +161,10 @@ export interface AppState {
   brand: string;
   industry: string;
   competitors: string[];
+  buyerContext: string;
+  brandSummary: string;
+  market: string;
+  customCategory: string;
   newCompetitor: string;
   addingPersona: boolean;
   newPersona: NewPersona;

@@ -7,6 +7,7 @@ interface HomeProps {
   onOpenHistory: () => void;
   detecting: boolean;
   detectError: string | null;
+  detectMessage: string;
   searchRef: React.RefObject<HTMLTextAreaElement>;
 }
 
@@ -19,7 +20,7 @@ const PILLS = [
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
-function Hero({ query, onQuery, onStartWizard, onOpenHistory, detecting, detectError, searchRef }: HomeProps) {
+function Hero({ query, onQuery, onStartWizard, onOpenHistory, detecting, detectError, detectMessage, searchRef }: HomeProps) {
   return (
     <div className="max-w-[780px] mx-auto px-4 sm:px-6 py-14 sm:py-[84px] pb-16 sm:pb-[100px] text-center animate-fadeUp">
       <div className="flex items-center justify-center gap-2 text-[28px] sm:text-[36px]">
@@ -38,27 +39,38 @@ function Hero({ query, onQuery, onStartWizard, onOpenHistory, detecting, detectE
         hearsay.ai shows you how leading AI models perceive, recommend, and position your brand — across the buyer personas that actually ask about your category.
       </p>
 
-      <div className="bg-white border border-[#E6E6E6] rounded-[20px] p-2 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.12)] text-left">
+      <div className={`bg-white border rounded-[20px] p-2 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.12)] text-left transition-colors ${detecting ? 'border-[#2D6AE0]/30' : 'border-[#E6E6E6]'}`}>
         <textarea
           ref={searchRef}
           value={query}
           onChange={e => onQuery(e.target.value)}
           placeholder="Describe the brand or product you want to evaluate..."
-          className="w-full border-none resize-none text-base leading-relaxed px-4 pt-4 pb-2 h-[84px] text-[#222] bg-transparent"
+          disabled={detecting}
+          className={`w-full border-none resize-none text-base leading-relaxed px-4 pt-4 pb-2 h-[84px] text-[#222] bg-transparent transition-opacity ${detecting ? 'opacity-50' : ''}`}
           onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !detecting) onStartWizard(); }}
         />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 pb-3 sm:pb-2 pt-1.5">
-          <span className="text-[12.5px] text-[#9A9A9A]">We'll handle the hard part — personas, prompts, and analysis.</span>
+          <span className={`text-[12.5px] ${detecting ? 'text-[#2D6AE0] font-medium' : 'text-[#9A9A9A]'}`}>
+            {detecting ? detectMessage : "We'll handle the hard part — personas, prompts, and analysis."}
+          </span>
           <button
             onClick={onStartWizard}
             disabled={detecting}
             className="flex items-center justify-center gap-2 w-full sm:w-auto bg-[#2D6AE0] text-white border-none rounded-[11px] px-5 py-[11px] text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {detecting ? 'Analyzing…' : <>Analyze <span className="text-[15px]">→</span></>}
+            {detecting
+              ? <><span className="w-[15px] h-[15px] border-2 border-white/40 border-t-white rounded-full animate-spin-slow inline-block flex-shrink-0" />Analyzing…</>
+              : <>Analyze <span className="text-[15px]">→</span></>
+            }
           </button>
         </div>
       </div>
-      {detectError && <div className="text-[13px] text-[#C2543A] mt-3">{detectError}</div>}
+      {detectError && (
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-3 text-[13px]">
+          <span className="text-[#C2543A]">{detectError}</span>
+          <button onClick={onStartWizard} className="text-[#2D6AE0] font-semibold cursor-pointer hover:opacity-80 underline underline-offset-2 bg-transparent border-none p-0">Try again →</button>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2.5 justify-center mt-6">
         {PILLS.map(pill => (
