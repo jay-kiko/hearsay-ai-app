@@ -40,6 +40,12 @@ body {
   color: #B6B6B6;
 }
 
+@media print {
+  @page {
+    margin: 14mm 12mm;
+  }
+}
+
 textarea:focus,
 input:focus,
 select:focus {

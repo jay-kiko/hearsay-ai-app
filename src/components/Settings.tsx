@@ -11,7 +11,7 @@ export function Settings() {
   const [savedPersonas, setSavedPersonas] = useState(SAVED_PERSONAS);
 
   return (
-    <div className="max-w-[780px] mx-auto px-7 py-12 pb-[110px] animate-fadeUp">
+    <div className="max-w-[780px] mx-auto px-4 sm:px-7 py-12 pb-[110px] animate-fadeUp">
       <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-1.5">Settings</h2>
       <p className="text-[15px] text-[#888] mb-8">Manage your API keys, personas, and preferences.</p>
 
@@ -31,15 +31,15 @@ export function Settings() {
         <div className="text-[13.5px] text-[#999] mb-[18px]">Reuse these across future analyses.</div>
         <div className="flex flex-col gap-2.5">
           {savedPersonas.map(p => (
-            <div key={p.initials} className="flex items-center justify-between border border-[#F0F0F0] rounded-[11px] px-[15px] py-[13px]">
-              <div className="flex items-center gap-3">
-                <div className="w-[34px] h-[34px] rounded-[9px] bg-[#EEF3FE] text-[#2D6AE0] flex items-center justify-center text-[12px] font-bold">{p.initials}</div>
-                <div>
+            <div key={p.initials} className="flex items-start justify-between gap-3 border border-[#F0F0F0] rounded-[11px] px-[15px] py-[13px]">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-[34px] h-[34px] rounded-[9px] bg-[#EEF3FE] text-[#2D6AE0] flex items-center justify-center text-[12px] font-bold flex-shrink-0">{p.initials}</div>
+                <div className="min-w-0">
                   <div className="text-sm font-semibold">{p.title}</div>
                   <div className="text-[12.5px] text-[#999]">{p.desc}</div>
                 </div>
               </div>
-              <span onClick={() => setSavedPersonas(sp => sp.filter(x => x.initials !== p.initials))} className="text-[13px] text-[#C2543A] cursor-pointer hover:opacity-80">Remove</span>
+              <span onClick={() => setSavedPersonas(sp => sp.filter(x => x.initials !== p.initials))} className="text-[13px] text-[#C2543A] cursor-pointer hover:opacity-80 flex-shrink-0">Remove</span>
             </div>
           ))}
         </div>

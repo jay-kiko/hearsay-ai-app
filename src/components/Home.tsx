@@ -21,20 +21,20 @@ const PILLS = [
 
 function Hero({ query, onQuery, onStartWizard, onOpenHistory, detecting, detectError, searchRef }: HomeProps) {
   return (
-    <div className="max-w-[780px] mx-auto px-6 py-[84px] pb-[100px] text-center animate-fadeUp">
-      <div className="flex items-center justify-center gap-2 text-[36px]">
-        <span>hearsay<span className="text-[42px] font-bold">.</span>ai</span>
+    <div className="max-w-[780px] mx-auto px-4 sm:px-6 py-14 sm:py-[84px] pb-16 sm:pb-[100px] text-center animate-fadeUp">
+      <div className="flex items-center justify-center gap-2 text-[28px] sm:text-[36px]">
+        <span>hearsay<span className="text-[32px] sm:text-[42px] font-bold">.</span>ai</span>
         <span className="text-[11px] font-bold tracking-[0.05em] uppercase text-[#2D6AE0] bg-[#EEF3FE] rounded-full px-2 py-[3px] self-start mt-1.5">Beta</span>
       </div>
-      <div className="inline-flex items-center gap-[9px] bg-white border border-[#ECECEC] rounded-full px-[14px] py-1.5 pl-1.5 mb-[30px]">
-        <span className="bg-[#2D6AE0] text-white text-[10.5px] font-bold tracking-[0.05em] rounded-full px-2 py-[3px]">NEW</span>
-        <span className="text-[13px] text-[#555]">Now analyzing visibility across buyer personas</span>
+      <div className="inline-flex items-center gap-[9px] bg-white border border-[#ECECEC] rounded-full px-[14px] py-1.5 pl-1.5 mb-[30px] max-w-full">
+        <span className="bg-[#2D6AE0] text-white text-[10.5px] font-bold tracking-[0.05em] rounded-full px-2 py-[3px] flex-shrink-0">NEW</span>
+        <span className="text-[12px] sm:text-[13px] text-[#555] text-left">Now analyzing visibility across buyer personas</span>
       </div>
 
-      <h1 className="text-[54px] leading-[1.05] tracking-[-0.03em] font-bold m-0 mb-5">
+      <h1 className="text-[32px] sm:text-[54px] leading-[1.1] sm:leading-[1.05] tracking-[-0.03em] font-bold m-0 mb-5">
         See what AI really<br />says about your brand.
       </h1>
-      <p className="text-[18px] leading-[1.55] text-[#666] max-w-[560px] mx-auto mb-10">
+      <p className="text-[15.5px] sm:text-[18px] leading-[1.55] text-[#666] max-w-[560px] mx-auto mb-8 sm:mb-10">
         hearsay.ai shows you how leading AI models perceive, recommend, and position your brand — across the buyer personas that actually ask about your category.
       </p>
 
@@ -47,12 +47,12 @@ function Hero({ query, onQuery, onStartWizard, onOpenHistory, detecting, detectE
           className="w-full border-none resize-none text-base leading-relaxed px-4 pt-4 pb-2 h-[84px] text-[#222] bg-transparent"
           onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !detecting) onStartWizard(); }}
         />
-        <div className="flex items-center justify-between px-4 pb-2 pt-1.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 pb-3 sm:pb-2 pt-1.5">
           <span className="text-[12.5px] text-[#9A9A9A]">We'll handle the hard part — personas, prompts, and analysis.</span>
           <button
             onClick={onStartWizard}
             disabled={detecting}
-            className="flex items-center gap-2 bg-[#2D6AE0] text-white border-none rounded-[11px] px-5 py-[11px] text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto bg-[#2D6AE0] text-white border-none rounded-[11px] px-5 py-[11px] text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {detecting ? 'Analyzing…' : <>Analyze <span className="text-[15px]">→</span></>}
           </button>
@@ -92,16 +92,16 @@ const FEATURES = [
 
 function SectionProduct() {
   return (
-    <section id="section-product" className="border-t border-[#ECECEC] py-[96px] px-6">
+    <section id="section-product" className="border-t border-[#ECECEC] py-16 sm:py-[96px] px-4 sm:px-6">
       <div className="max-w-[960px] mx-auto">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 sm:mb-16">
           <span className="text-[12.5px] font-bold tracking-[0.08em] text-[#2D6AE0] uppercase">How it works</span>
-          <h2 className="text-[40px] font-bold tracking-[-0.025em] mt-3 mb-4">From query to clarity<br />in under 2 minutes.</h2>
-          <p className="text-[17px] text-[#666] max-w-[520px] mx-auto leading-relaxed">No prompt engineering. No spreadsheets. Just paste your brand and we handle the rest.</p>
+          <h2 className="text-[28px] sm:text-[40px] font-bold tracking-[-0.025em] mt-3 mb-4">From query to clarity<br />in under 2 minutes.</h2>
+          <p className="text-[15.5px] sm:text-[17px] text-[#666] max-w-[520px] mx-auto leading-relaxed">No prompt engineering. No spreadsheets. Just paste your brand and we handle the rest.</p>
         </div>
 
         {/* Steps */}
-        <div className="grid grid-cols-3 gap-8 mb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-12 sm:mb-20">
           {HOW_IT_WORKS.map(s => (
             <div key={s.step} className="relative">
               <div className="text-[11px] font-bold tracking-[0.1em] text-[#CCCCCC] mb-3">{s.step}</div>
@@ -113,7 +113,7 @@ function SectionProduct() {
         </div>
 
         {/* Features grid */}
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {FEATURES.map(f => (
             <div key={f.title} className="bg-white border border-[#ECECEC] rounded-[16px] p-6 flex gap-4">
               <span className="text-2xl flex-shrink-0">{f.icon}</span>
@@ -157,15 +157,15 @@ const USE_CASES = [
 
 function SectionUseCases() {
   return (
-    <section id="section-usecases" className="bg-[#F7F9FF] border-t border-[#ECECEC] py-[96px] px-6">
+    <section id="section-usecases" className="bg-[#F7F9FF] border-t border-[#ECECEC] py-16 sm:py-[96px] px-4 sm:px-6">
       <div className="max-w-[960px] mx-auto">
-        <div className="text-center mb-14">
+        <div className="text-center mb-10 sm:mb-14">
           <span className="text-[12.5px] font-bold tracking-[0.08em] text-[#2D6AE0] uppercase">Use Cases</span>
-          <h2 className="text-[40px] font-bold tracking-[-0.025em] mt-3 mb-4">Built for teams that<br />live by AI visibility.</h2>
-          <p className="text-[17px] text-[#666] max-w-[480px] mx-auto leading-relaxed">Whether you're in brand, growth, or research — hearsay.ai surfaces the AI intelligence your team needs.</p>
+          <h2 className="text-[28px] sm:text-[40px] font-bold tracking-[-0.025em] mt-3 mb-4">Built for teams that<br />live by AI visibility.</h2>
+          <p className="text-[15.5px] sm:text-[17px] text-[#666] max-w-[480px] mx-auto leading-relaxed">Whether you're in brand, growth, or research — hearsay.ai surfaces the AI intelligence your team needs.</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {USE_CASES.map(uc => (
             <div key={uc.audience} className="bg-white border border-[#ECECEC] rounded-[18px] p-7 flex flex-col">
               <span className="inline-block bg-[#EEF3FE] text-[#2D6AE0] text-[11px] font-bold tracking-[0.06em] uppercase rounded-full px-3 py-1 mb-5 self-start">{uc.tag}</span>
@@ -218,15 +218,15 @@ const PLANS = [
 
 function SectionPricing() {
   return (
-    <section id="section-pricing" className="border-t border-[#ECECEC] py-[96px] px-6">
+    <section id="section-pricing" className="border-t border-[#ECECEC] py-16 sm:py-[96px] px-4 sm:px-6">
       <div className="max-w-[960px] mx-auto">
-        <div className="text-center mb-14">
+        <div className="text-center mb-10 sm:mb-14">
           <span className="text-[12.5px] font-bold tracking-[0.08em] text-[#2D6AE0] uppercase">Pricing</span>
-          <h2 className="text-[40px] font-bold tracking-[-0.025em] mt-3 mb-4">Simple, transparent pricing.</h2>
-          <p className="text-[17px] text-[#666] max-w-[420px] mx-auto leading-relaxed">Start free. Scale as your visibility program grows.</p>
+          <h2 className="text-[28px] sm:text-[40px] font-bold tracking-[-0.025em] mt-3 mb-4">Simple, transparent pricing.</h2>
+          <p className="text-[15.5px] sm:text-[17px] text-[#666] max-w-[420px] mx-auto leading-relaxed">Start free. Scale as your visibility program grows.</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {PLANS.map(plan => (
             <div
               key={plan.name}
@@ -293,18 +293,18 @@ const RESOURCES = [
 
 function SectionResources() {
   return (
-    <section id="section-resources" className="bg-[#F7F9FF] border-t border-[#ECECEC] py-[96px] px-6">
+    <section id="section-resources" className="bg-[#F7F9FF] border-t border-[#ECECEC] py-16 sm:py-[96px] px-4 sm:px-6">
       <div className="max-w-[960px] mx-auto">
-        <div className="flex items-end justify-between mb-12 flex-wrap gap-4">
+        <div className="flex items-end justify-between mb-10 sm:mb-12 flex-wrap gap-4">
           <div>
             <span className="text-[12.5px] font-bold tracking-[0.08em] text-[#2D6AE0] uppercase">Resources</span>
-            <h2 className="text-[40px] font-bold tracking-[-0.025em] mt-3 mb-2">Learn AI visibility.</h2>
-            <p className="text-[17px] text-[#666] leading-relaxed">Guides, case studies, and docs to help you win in the AI era.</p>
+            <h2 className="text-[28px] sm:text-[40px] font-bold tracking-[-0.025em] mt-3 mb-2">Learn AI visibility.</h2>
+            <p className="text-[15.5px] sm:text-[17px] text-[#666] leading-relaxed">Guides, case studies, and docs to help you win in the AI era.</p>
           </div>
           <span className="text-sm text-[#2D6AE0] font-semibold cursor-pointer hover:opacity-80">View all resources →</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {RESOURCES.map(r => (
             <div key={r.title} className="bg-white border border-[#ECECEC] rounded-[18px] p-7 cursor-pointer hover:border-[#D0D0D0] hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] transition-all">
               <span className={`inline-block text-[11px] font-bold uppercase tracking-[0.06em] rounded-full px-3 py-1 mb-5 ${r.typeColor}`}>{r.type}</span>
@@ -326,8 +326,8 @@ function SectionResources() {
 
 function Footer() {
   return (
-    <footer className="border-t border-[#ECECEC] py-10 px-9">
-      <div className="max-w-[960px] mx-auto flex items-center justify-between flex-wrap gap-4">
+    <footer className="border-t border-[#ECECEC] py-10 px-4 sm:px-9">
+      <div className="max-w-[960px] mx-auto flex flex-col sm:flex-row items-center justify-between flex-wrap gap-4 text-center sm:text-left">
         <div className="flex items-center gap-2">
           <img src={kikologo} alt="hearsay.ai" className="h-[45px] w-auto opacity-60" />
         </div>

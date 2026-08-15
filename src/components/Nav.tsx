@@ -25,27 +25,29 @@ export function Nav({ screen, onGoHome, onOpenHistory, onOpenSettings, onFocusSe
   const showWizardNav = screen !== 'home';
 
   return (
-    <nav className="h-[70px] flex items-center justify-between px-9 border-b border-[#ECECEC] bg-[rgba(250,250,250,0.82)] backdrop-blur-sm sticky top-0 z-50">
+    <nav className="h-[64px] sm:h-[70px] flex items-center justify-between px-4 sm:px-9 border-b border-[#ECECEC] bg-[rgba(250,250,250,0.82)] backdrop-blur-sm sticky top-0 z-50 print:hidden">
       {/* Logo */}
-      <div onClick={onGoHome} className="flex items-center gap-2 cursor-pointer select-none">
-        <img src={kikologo} alt="hearsay.ai" className="h-[45px] w-auto block mt-3" />
-        <span className="text-[10px] font-bold tracking-[0.05em] uppercase text-[#2D6AE0] bg-[#EEF3FE] rounded-full px-[7px] py-[2px]">Beta</span>
+      <div onClick={onGoHome} className="flex items-center gap-2 cursor-pointer select-none flex-shrink-0">
+        <img src={kikologo} alt="hearsay.ai" className="h-9 sm:h-[45px] w-auto block sm:mt-3" />
+        <span className="text-[9px] sm:text-[10px] font-bold tracking-[0.05em] uppercase text-[#2D6AE0] bg-[#EEF3FE] rounded-full px-[6px] sm:px-[7px] py-[2px]">Beta</span>
       </div>
 
       {isHome && (
-        <div className="flex items-center gap-[30px]">
-          {Object.keys(NAV_SECTIONS).map(item => (
-            <span
-              key={item}
-              onClick={() => scrollTo(NAV_SECTIONS[item])}
-              className="text-sm text-[#5A5A5A] cursor-pointer hover:text-[#141414] transition-colors"
-            >
-              {item}
-            </span>
-          ))}
+        <div className="flex items-center gap-2 sm:gap-[30px]">
+          <div className="hidden md:flex items-center gap-[30px]">
+            {Object.keys(NAV_SECTIONS).map(item => (
+              <span
+                key={item}
+                onClick={() => scrollTo(NAV_SECTIONS[item])}
+                className="text-sm text-[#5A5A5A] cursor-pointer hover:text-[#141414] transition-colors"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
           <button
             onClick={onFocusSearch}
-            className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-5 py-[10px] text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors"
+            className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-3.5 sm:px-5 py-2 sm:py-[10px] text-[13px] sm:text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors flex-shrink-0"
           >
             Get Started
           </button>
@@ -53,11 +55,11 @@ export function Nav({ screen, onGoHome, onOpenHistory, onOpenSettings, onFocusSe
       )}
 
       {showWizardNav && (
-        <div className="flex items-center gap-1.5">
-          <span onClick={onGoHome} className="text-sm text-[#5A5A5A] cursor-pointer px-[14px] py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors">New Analysis</span>
-          <span onClick={onOpenHistory} className="text-sm text-[#5A5A5A] cursor-pointer px-[14px] py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors">History</span>
-          <span onClick={onOpenSettings} className="text-sm text-[#5A5A5A] cursor-pointer px-[14px] py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors">Settings</span>
-          <div className="w-[34px] h-[34px] rounded-full bg-[#EEF3FE] text-[#2D6AE0] flex items-center justify-center text-[13px] font-bold ml-2">AK</div>
+        <div className="flex items-center gap-0.5 sm:gap-1.5">
+          <span onClick={onGoHome} className="text-[12.5px] sm:text-sm text-[#5A5A5A] cursor-pointer px-2 sm:px-[14px] py-1.5 sm:py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors whitespace-nowrap">New Analysis</span>
+          <span onClick={onOpenHistory} className="text-[12.5px] sm:text-sm text-[#5A5A5A] cursor-pointer px-2 sm:px-[14px] py-1.5 sm:py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors">History</span>
+          <span onClick={onOpenSettings} className="text-[12.5px] sm:text-sm text-[#5A5A5A] cursor-pointer px-2 sm:px-[14px] py-1.5 sm:py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors">Settings</span>
+          <div className="w-7 h-7 sm:w-[34px] sm:h-[34px] rounded-full bg-[#EEF3FE] text-[#2D6AE0] flex items-center justify-center text-[11px] sm:text-[13px] font-bold ml-1 sm:ml-2 flex-shrink-0">AK</div>
         </div>
       )}
     </nav>

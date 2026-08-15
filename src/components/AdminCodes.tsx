@@ -22,7 +22,7 @@ export function AdminCodes({ codes, loading, error, revokingCode, onGenerate, on
   };
 
   return (
-    <div className="max-w-[820px] mx-auto px-7 py-12 pb-[110px] animate-fadeUp">
+    <div className="max-w-[820px] mx-auto px-4 sm:px-7 py-12 pb-[110px] animate-fadeUp">
       <span onClick={onBack} className="text-[13px] text-[#999] font-semibold cursor-pointer hover:text-[#555]">← Back to access gate</span>
       <h2 className="text-[30px] tracking-[-0.02em] font-bold mt-3 mb-1.5">Access codes</h2>
       <p className="text-[15px] text-[#888] mb-8">Generate invite codes, set how many times each can be used, and revoke ones you no longer want honored.</p>
@@ -49,44 +49,48 @@ export function AdminCodes({ codes, loading, error, revokingCode, onGenerate, on
       </div>
 
       <div className="bg-white border border-[#ECECEC] rounded-[16px] overflow-hidden">
-        <div className="grid grid-cols-[1.4fr_0.9fr_1fr_0.9fr_0.8fr] px-[22px] py-[14px] border-b border-[#F0F0F0] text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase">
-          <span>Code</span><span>Uses</span><span>Created</span><span>Status</span><span></span>
-        </div>
-        {codes.length === 0 && (
-          <div className="px-[22px] py-8 text-center text-[13.5px] text-[#999]">No access codes yet.</div>
-        )}
-        {codes.map((c, i) => {
-          const exhausted = c.usesRemaining <= 0;
-          const status = c.revoked ? 'Revoked' : exhausted ? 'Exhausted' : 'Active';
-          const statusColor = c.revoked ? '#A0A0A0' : exhausted ? '#A0A0A0' : '#1E9E6A';
-          const statusBg = c.revoked ? '#F0F0F0' : exhausted ? '#F0F0F0' : '#E8F6EF';
-          return (
-            <div key={c.code} className={`grid grid-cols-[1.4fr_0.9fr_1fr_0.9fr_0.8fr] px-[22px] py-4 text-sm text-[#444] items-center ${i < codes.length - 1 ? 'border-b border-[#F4F4F4]' : ''}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-mono font-semibold text-[#1b1b1b] truncate">{c.code}</span>
-                <span onClick={() => copy(c.code)} className="text-[11px] text-[#2D6AE0] cursor-pointer hover:opacity-80 flex-shrink-0">{copied === c.code ? 'Copied' : 'Copy'}</span>
-              </div>
-              <div className="text-[13.5px]">{c.usesRemaining} / {c.usesTotal}</div>
-              <div className="text-[13px] text-[#888]">{new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-              <span
-                className="text-[11.5px] font-semibold rounded-full px-[11px] py-1 justify-self-start"
-                style={{ color: statusColor, background: statusBg }}
-              >
-                {status}
-              </span>
-              {c.revoked ? (
-                <span />
-              ) : (
-                <span
-                  onClick={() => revokingCode !== c.code && onRevoke(c.code)}
-                  className="text-[12px] text-[#C2543A] cursor-pointer hover:opacity-80 justify-self-start"
-                >
-                  {revokingCode === c.code ? 'Revoking…' : 'Revoke'}
-                </span>
-              )}
+        <div className="overflow-x-auto">
+          <div className="min-w-[560px]">
+            <div className="grid grid-cols-[1.4fr_0.9fr_1fr_0.9fr_0.8fr] px-[22px] py-[14px] border-b border-[#F0F0F0] text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase">
+              <span>Code</span><span>Uses</span><span>Created</span><span>Status</span><span></span>
             </div>
-          );
-        })}
+            {codes.length === 0 && (
+              <div className="px-[22px] py-8 text-center text-[13.5px] text-[#999]">No access codes yet.</div>
+            )}
+            {codes.map((c, i) => {
+              const exhausted = c.usesRemaining <= 0;
+              const status = c.revoked ? 'Revoked' : exhausted ? 'Exhausted' : 'Active';
+              const statusColor = c.revoked ? '#A0A0A0' : exhausted ? '#A0A0A0' : '#1E9E6A';
+              const statusBg = c.revoked ? '#F0F0F0' : exhausted ? '#F0F0F0' : '#E8F6EF';
+              return (
+                <div key={c.code} className={`grid grid-cols-[1.4fr_0.9fr_1fr_0.9fr_0.8fr] px-[22px] py-4 text-sm text-[#444] items-center ${i < codes.length - 1 ? 'border-b border-[#F4F4F4]' : ''}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono font-semibold text-[#1b1b1b] truncate">{c.code}</span>
+                    <span onClick={() => copy(c.code)} className="text-[11px] text-[#2D6AE0] cursor-pointer hover:opacity-80 flex-shrink-0">{copied === c.code ? 'Copied' : 'Copy'}</span>
+                  </div>
+                  <div className="text-[13.5px]">{c.usesRemaining} / {c.usesTotal}</div>
+                  <div className="text-[13px] text-[#888]">{new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                  <span
+                    className="text-[11.5px] font-semibold rounded-full px-[11px] py-1 justify-self-start"
+                    style={{ color: statusColor, background: statusBg }}
+                  >
+                    {status}
+                  </span>
+                  {c.revoked ? (
+                    <span />
+                  ) : (
+                    <span
+                      onClick={() => revokingCode !== c.code && onRevoke(c.code)}
+                      className="text-[12px] text-[#C2543A] cursor-pointer hover:opacity-80 justify-self-start"
+                    >
+                      {revokingCode === c.code ? 'Revoking…' : 'Revoke'}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

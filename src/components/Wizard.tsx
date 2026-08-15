@@ -160,7 +160,7 @@ function Step2({ personas, addingPersona, newPersona, personasLoading, personasE
       <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">We generated {selectedCount} buyer personas</h2>
       <p className="text-[15.5px] text-[#777] mb-7 max-w-[620px]">These represent the people who'd ask AI about your category. Adjust, remove, or add custom personas — up to 15.</p>
 
-      <div className="grid grid-cols-2 gap-[14px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-[14px]">
         {personas.map(p => (
           <div key={p.id} onClick={() => onExpandPersona(p.id)} className="bg-white border border-[#ECECEC] rounded-[15px] p-[18px] cursor-pointer hover:border-[#D5D5D5] transition-colors">
             <div className="flex items-start gap-[13px]">
@@ -190,7 +190,7 @@ function Step2({ personas, addingPersona, newPersona, personasLoading, personasE
       {addingPersona ? (
         <div className="bg-white border border-[#cdddf8] rounded-[15px] p-[22px] mt-[14px]">
           <div className="text-[15px] font-semibold mb-4">New custom persona</div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(['name', 'role', 'industry', 'goals', 'pains', 'criteria'] as (keyof NewPersona)[]).map(field => (
               <input key={field} value={newPersona[field]} onChange={e => onNewPersonaField(field, e.target.value)} placeholder={field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} className="border border-[#E2E2E2] rounded-[10px] px-[13px] py-[11px] text-sm focus:border-[#2D6AE0] focus:outline-none" />
             ))}
@@ -355,11 +355,11 @@ function Step5({ brand, industry, competitors, personas, models, samplePrompts, 
         ))}
       </div>
 
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3">
         <button onClick={onPrevStep} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-[22px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Back</button>
         <div className="flex gap-3 items-center">
-          <button className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-5 py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Save as Draft</button>
-          <button onClick={onLaunch} className="bg-[#2D6AE0] text-white border-none rounded-[11px] px-8 py-[13px] text-[15px] font-semibold cursor-pointer hover:bg-[#2560d0] shadow-[0_8px_20px_-8px_#2D6AE0]">Run Analysis</button>
+          <button className="flex-1 sm:flex-none bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-5 py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Save as Draft</button>
+          <button onClick={onLaunch} className="flex-1 sm:flex-none bg-[#2D6AE0] text-white border-none rounded-[11px] px-8 py-[13px] text-[15px] font-semibold cursor-pointer hover:bg-[#2560d0] shadow-[0_8px_20px_-8px_#2D6AE0]">Run Analysis</button>
         </div>
       </div>
     </div>
@@ -375,7 +375,7 @@ export function Wizard(props: WizardProps) {
     .slice(0, 3);
 
   return (
-    <div className="max-w-[880px] mx-auto px-6 py-[46px] pb-[110px] animate-fadeUp">
+    <div className="max-w-[880px] mx-auto px-4 sm:px-6 py-8 sm:py-[46px] pb-[110px] animate-fadeUp">
       <StepBar step={step} />
       {step === 1 && <Step1 {...props} />}
       {step === 2 && <Step2 {...props} />}

@@ -23,7 +23,7 @@ export function Running({ brand, personas, runStatuses, runProgress, error, onBa
   }
 
   return (
-    <div className="max-w-[620px] mx-auto px-6 py-16 pb-[110px] animate-fadeUp">
+    <div className="max-w-[620px] mx-auto px-4 sm:px-6 py-16 pb-[110px] animate-fadeUp">
       <div className="text-center mb-10">
         <h2 className="text-[28px] tracking-[-0.02em] font-bold mb-2">Analyzing {brand}</h2>
         <p className="text-[15px] text-[#888] mb-6">We're querying each persona and reading every response.</p>

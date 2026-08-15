@@ -14,7 +14,7 @@ function scoreColor(score: number): string {
 
 export function Activation({ brand, sitelist, onBack }: ActivationProps) {
   return (
-    <div className="max-w-[1080px] mx-auto px-7 py-10 pb-[110px] animate-fadeUp">
+    <div className="max-w-[1080px] mx-auto px-4 sm:px-7 py-10 pb-[110px] animate-fadeUp">
       <div className="flex items-start justify-between flex-wrap gap-4 mb-2.5">
         <div>
           <span onClick={onBack} className="text-[13px] text-[#999] font-semibold cursor-pointer hover:text-[#555]">← Back to results</span>
@@ -28,30 +28,34 @@ export function Activation({ brand, sitelist, onBack }: ActivationProps) {
       </div>
 
       <div className="bg-white border border-[#ECECEC] rounded-[16px] overflow-hidden mt-[26px]">
-        <div className="grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-[14px] border-b border-[#F0F0F0] text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase">
-          <span>Publisher</span><span>AI Influence</span><span>Inventory</span><span>Market availability</span><span>Est. CPM</span><span>Status</span>
-        </div>
-        {sitelist.length === 0 && (
-          <div className="px-[22px] py-10 text-center text-[13.5px] text-[#999]">No influential publishers surfaced for this analysis.</div>
-        )}
-        {sitelist.map((p, i) => (
-          <div key={p.name} className={`grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-4 text-sm text-[#444] items-center ${i < sitelist.length - 1 ? 'border-b border-[#F4F4F4]' : ''}`}>
-            <div>
-              <div className="font-semibold text-[#1b1b1b]">{p.name}</div>
-              <div className="text-xs text-[#999] mt-[1px]">{p.category}</div>
+        <div className="overflow-x-auto">
+          <div className="min-w-[720px]">
+            <div className="grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-[14px] border-b border-[#F0F0F0] text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase">
+              <span>Publisher</span><span>AI Influence</span><span>Inventory</span><span>Market availability</span><span>Est. CPM</span><span>Status</span>
             </div>
-            <div className="font-bold" style={{ color: scoreColor(p.score) }}>{p.score}</div>
-            <div className="text-[12.5px] text-[#666] leading-snug">{p.inventory.length ? p.inventory.join(' · ') : '—'}</div>
-            <div className="text-[13px] text-[#555]">{p.availability}</div>
-            <div className="text-[13px] text-[#555]">{p.cpm}</div>
-            <span
-              className="text-[11.5px] font-semibold rounded-full px-[11px] py-1 justify-self-start"
-              style={{ color: p.buyable ? '#1E9E6A' : '#A0A0A0', background: p.buyable ? '#E8F6EF' : '#F0F0F0' }}
-            >
-              {p.buyable ? 'Buyable' : 'Non-buyable'}
-            </span>
+            {sitelist.length === 0 && (
+              <div className="px-[22px] py-10 text-center text-[13.5px] text-[#999]">No influential publishers surfaced for this analysis.</div>
+            )}
+            {sitelist.map((p, i) => (
+              <div key={p.name} className={`grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-4 text-sm text-[#444] items-center ${i < sitelist.length - 1 ? 'border-b border-[#F4F4F4]' : ''}`}>
+                <div>
+                  <div className="font-semibold text-[#1b1b1b]">{p.name}</div>
+                  <div className="text-xs text-[#999] mt-[1px]">{p.category}</div>
+                </div>
+                <div className="font-bold" style={{ color: scoreColor(p.score) }}>{p.score}</div>
+                <div className="text-[12.5px] text-[#666] leading-snug">{p.inventory.length ? p.inventory.join(' · ') : '—'}</div>
+                <div className="text-[13px] text-[#555]">{p.availability}</div>
+                <div className="text-[13px] text-[#555]">{p.cpm}</div>
+                <span
+                  className="text-[11.5px] font-semibold rounded-full px-[11px] py-1 justify-self-start"
+                  style={{ color: p.buyable ? '#1E9E6A' : '#A0A0A0', background: p.buyable ? '#E8F6EF' : '#F0F0F0' }}
+                >
+                  {p.buyable ? 'Buyable' : 'Non-buyable'}
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );
