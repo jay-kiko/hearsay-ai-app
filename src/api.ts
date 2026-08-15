@@ -1,4 +1,4 @@
-import type { AccessCode, AccessStatus, AnalysisResult, DetectResult, Persona, PersonaEvent } from './types';
+import type { AccessCode, AccessStatus, AnalysisResult, DetectResult, GeneratedPersona, Persona, PersonaEvent } from './types';
 
 const BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -38,6 +38,27 @@ export async function detectBrand(args: { query: string; accessCode: string }): 
   });
   if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
   return res.json();
+}
+
+export async function generatePersonas(args: {
+  brand: string;
+  industry: string;
+  competitors: string[];
+  accessCode: string;
+}): Promise<GeneratedPersona[]> {
+  const res = await fetch(`${BASE}/api/generate-personas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      brand: args.brand,
+      industry: args.industry,
+      competitors: args.competitors,
+      accessCode: args.accessCode,
+    }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
+  const body = await res.json();
+  return body.personas;
 }
 
 export async function generatePrompts(args: {

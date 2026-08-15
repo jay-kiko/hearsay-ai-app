@@ -135,6 +135,16 @@ export interface DetectResult {
   competitors: string[];
 }
 
+export interface GeneratedPersona {
+  id: string;
+  title: string;
+  initials: string;
+  desc: string;
+  role: string;
+  pains: string;
+  criteria: string;
+}
+
 export interface PersonaEvent {
   personaId: string;
   status: RunStatus;

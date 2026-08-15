@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AccessCode, AnalysisResult, AppState, NewPersona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
-import { ApiError, checkAccessStatus, detectBrand, generatePrompts, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis } from './api';
+import { ApiError, checkAccessStatus, detectBrand, generatePersonas, generatePrompts, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -15,6 +15,11 @@ import { AdminLogin } from './components/AdminLogin';
 import { AdminCodes } from './components/AdminCodes';
 
 const IS_ADMIN_ROUTE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin');
+
+// Sole purpose: survive a page reload without forcing the code back in.
+// Nothing else about the session (wizard progress, results) is persisted —
+// this app is deliberately ephemeral beyond that one annoyance.
+const SESSION_CODE_KEY = 'hearsay_access_code';
 
 const GATE_STATUS_MESSAGE: Record<string, string> = {
   unknown: 'Access code not found.',
@@ -57,10 +62,16 @@ export default function App() {
   const closeStreamRef = useRef<(() => void) | null>(null);
 
   // ── Access gate ─────────────────────────────────────────────────────
-  const [unlocked, setUnlocked] = useState(false);
-  const [accessCode, setAccessCode] = useState('');
+  const [accessCode, setAccessCode] = useState(() => sessionStorage.getItem(SESSION_CODE_KEY) ?? '');
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_CODE_KEY) !== null);
   const [gateLoading, setGateLoading] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
+
+  const lockOut = useCallback((message: string) => {
+    sessionStorage.removeItem(SESSION_CODE_KEY);
+    setUnlocked(false);
+    setGateError(message);
+  }, []);
 
   const handleSubmitCode = useCallback(async (code: string) => {
     const trimmed = code.trim();
@@ -76,6 +87,7 @@ export default function App() {
         setGateError(GATE_STATUS_MESSAGE[status] ?? 'This access code is not valid.');
         return;
       }
+      sessionStorage.setItem(SESSION_CODE_KEY, trimmed);
       setAccessCode(trimmed);
       setUnlocked(true);
     } catch (e) {
@@ -139,6 +151,10 @@ export default function App() {
   // ── Core app state ──────────────────────────────────────────────────
   const [detecting, setDetecting] = useState(false);
   const [detectError, setDetectError] = useState<string | null>(null);
+  const [personasLoading, setPersonasLoading] = useState(false);
+  const [personasError, setPersonasError] = useState<string | null>(null);
+  const [personasProgress, setPersonasProgress] = useState(0);
+  const personasTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [promptsError, setPromptsError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
@@ -154,11 +170,14 @@ export default function App() {
 
   const goHome = useCallback(() => {
     closeStream();
+    if (personasTimerRef.current) clearInterval(personasTimerRef.current);
+    personasTimerRef.current = null;
     setRunError(null);
     setLiveResults({});
     setAnalysisResult(null);
     setPromptsError(null);
     setDetectError(null);
+    setPersonasError(null);
     setState(s => ({ ...s, screen: 'home', step: 1, runStatuses: {}, runProgress: 0, personaPrompts: {} }));
   }, [closeStream]);
 
@@ -176,15 +195,48 @@ export default function App() {
       update({ screen: 'wizard', step: 1, query: q, brand: detected.brand, industry: detected.industry, competitors: detected.competitors });
     } catch (e) {
       if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
-        setUnlocked(false);
-        setGateError(e.message);
+        lockOut(e.message);
       } else {
         setDetectError(errorMessage(e));
       }
     } finally {
       setDetecting(false);
     }
-  }, [state.query, accessCode, update]);
+  }, [state.query, accessCode, update, lockOut]);
+
+  const goToPersonas = useCallback(async () => {
+    update({ step: 2 });
+    setPersonasLoading(true);
+    setPersonasError(null);
+    setPersonasProgress(0);
+
+    // The backend generates all personas in one non-incremental call — there's
+    // no real "3 of 8 done" moment to report. This estimates progress from
+    // typical duration instead of faking discrete steps, and deliberately
+    // caps short of 100% since we don't actually know it's finished until the
+    // response arrives.
+    const ESTIMATED_MS = 26_000;
+    const startedAt = Date.now();
+    personasTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      setPersonasProgress(Math.min(92, Math.round((elapsed / ESTIMATED_MS) * 92)));
+    }, 250);
+
+    try {
+      const generated = await generatePersonas({ brand: state.brand, industry: state.industry, competitors: state.competitors, accessCode });
+      update({ personas: generated.map(p => ({ ...p, selected: true, expanded: false })) });
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+        lockOut(e.message);
+      } else {
+        setPersonasError(errorMessage(e));
+      }
+    } finally {
+      if (personasTimerRef.current) clearInterval(personasTimerRef.current);
+      personasTimerRef.current = null;
+      setPersonasLoading(false);
+    }
+  }, [state.brand, state.industry, state.competitors, accessCode, update, lockOut]);
 
   const goToPrompts = useCallback(async () => {
     update({ step: 4 });
@@ -196,17 +248,16 @@ export default function App() {
       update({ personaPrompts: prompts });
     } catch (e) {
       if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
-        // The code turned out invalid/exhausted — this is the first real
-        // check it's had, so send the user back to the gate with why.
-        setUnlocked(false);
-        setGateError(e.message);
+        // The code turned out invalid/exhausted/revoked since it was granted
+        // — send the user back to the gate with why, and forget it.
+        lockOut(e.message);
       } else {
         setPromptsError(errorMessage(e));
       }
     } finally {
       setPromptsLoading(false);
     }
-  }, [state.personas, state.brand, state.industry, accessCode, update]);
+  }, [state.personas, state.brand, state.industry, accessCode, update, lockOut]);
 
   const launchAnalysis = useCallback(async () => {
     const selected = state.personas.filter(p => p.selected);
@@ -284,7 +335,7 @@ export default function App() {
   }, []);
 
   const wizardProps = {
-    step, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, promptsLoading, promptsError, getPersonaPrompts,
+    step, brand, industry, competitors, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts,
     onBrand: (v: string) => update({ brand: v }),
     onIndustry: (v: string) => update({ industry: v }),
     onRemoveCompetitor: (c: string) => update({ competitors: competitors.filter(x => x !== c) }),
@@ -318,6 +369,7 @@ export default function App() {
     onToggleModel: (id: string) => update({ models: models.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m) }),
     onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt,
     onNextStep: () => {
+      if (step === 1) { goToPersonas(); return; }
       if (step === 3) { goToPrompts(); return; }
       update({ step: Math.min(5, step + 1) });
     },

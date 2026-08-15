@@ -12,6 +12,9 @@ interface WizardProps {
   models: AIModel[];
   personaPrompts: Record<string, string[]>;
   promptsExpanded: Record<string, boolean>;
+  personasLoading: boolean;
+  personasError: string | null;
+  personasProgress: number;
   promptsLoading: boolean;
   promptsError: string | null;
   getPersonaPrompts: (id: string) => string[];
@@ -123,8 +126,34 @@ function Step1({ brand, industry, competitors, newCompetitor, onBrand, onIndustr
   );
 }
 
-function Step2({ personas, addingPersona, newPersona, onTogglePersona, onExpandPersona, onOpenAddPersona, onCloseAddPersona, onNewPersonaField, onSaveCustomPersona, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'addingPersona' | 'newPersona' | 'onTogglePersona' | 'onExpandPersona' | 'onOpenAddPersona' | 'onCloseAddPersona' | 'onNewPersonaField' | 'onSaveCustomPersona' | 'onPrevStep' | 'onNextStep'>) {
+function Step2({ personas, addingPersona, newPersona, personasLoading, personasError, personasProgress, onTogglePersona, onExpandPersona, onOpenAddPersona, onCloseAddPersona, onNewPersonaField, onSaveCustomPersona, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'addingPersona' | 'newPersona' | 'personasLoading' | 'personasError' | 'personasProgress' | 'onTogglePersona' | 'onExpandPersona' | 'onOpenAddPersona' | 'onCloseAddPersona' | 'onNewPersonaField' | 'onSaveCustomPersona' | 'onPrevStep' | 'onNextStep'>) {
   const selectedCount = personas.filter(p => p.selected).length;
+
+  if (personasLoading) {
+    return (
+      <div className="animate-fadeUp text-center py-20 max-w-[380px] mx-auto">
+        <h2 className="text-[22px] tracking-[-0.02em] font-bold mb-2">Designing buyer personas for your category…</h2>
+        <p className="text-[14.5px] text-[#888] mb-6">One request, tailored to your industry and competitors — usually takes 20–30s.</p>
+        <div className="h-2 rounded-full bg-[#ECECEC] overflow-hidden">
+          <div
+            className="h-full rounded-full bg-[#2D6AE0] transition-all duration-300 ease-out"
+            style={{ width: `${personasProgress}%` }}
+          />
+        </div>
+        <div className="text-[12.5px] text-[#999] mt-2.5">{personasProgress}%</div>
+      </div>
+    );
+  }
+
+  if (personasError) {
+    return (
+      <div className="animate-fadeUp text-center py-20 max-w-[440px] mx-auto">
+        <h2 className="text-[22px] tracking-[-0.02em] font-bold mb-2">Couldn't generate personas</h2>
+        <p className="text-[14.5px] text-[#888] mb-7">{personasError}</p>
+        <button onClick={onPrevStep} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-[22px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#F8F8F8]">Back</button>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fadeUp">
