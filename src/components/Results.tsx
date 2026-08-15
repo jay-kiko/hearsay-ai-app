@@ -11,7 +11,6 @@ interface ResultsProps {
   products: Product[];
   sources: Sources;
   onGoHome: () => void;
-  onOpenActivation: () => void;
 }
 
 const ACCENT = '#2D6AE0';
@@ -216,7 +215,7 @@ function RadarChart() {
   );
 }
 
-export function Results({ brand, industry, personas, results, overview, products, sources, onGoHome, onOpenActivation }: ResultsProps) {
+export function Results({ brand, industry, personas, results, overview, products, sources, onGoHome }: ResultsProps) {
   const selected = personas.filter(p => p.selected);
   const [openResult, setOpenResult] = useState<string | null>(selected[0]?.id ?? null);
   const positiveCount = selected.filter(p => results[p.id]?.sentiment === 'Positive').length;
@@ -239,7 +238,12 @@ export function Results({ brand, industry, personas, results, overview, products
             <button key={btn} className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">{btn}</button>
           ))}
           <button onClick={onGoHome} className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">Re-run</button>
-          <button onClick={onOpenActivation} className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#2560d0]">Build AI Influence Sitelist →</button>
+          <div className="relative group">
+            <button disabled className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold opacity-50 cursor-not-allowed">Build AI Influence Sitelist →</button>
+            <div className="pointer-events-none absolute right-0 top-full mt-2 whitespace-nowrap rounded-[8px] bg-[#1b1b1b] px-3 py-1.5 text-[12px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
+              Coming soon
+            </div>
+          </div>
         </div>
       </div>
 

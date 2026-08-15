@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AccessCode, AnalysisResult, AppState, NewPersona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
-import { ApiError, detectBrand, generatePrompts, listCodes, mintCodes, startAnalysis, streamAnalysis } from './api';
+import { ApiError, checkAccessStatus, detectBrand, generatePrompts, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -15,6 +15,12 @@ import { AdminLogin } from './components/AdminLogin';
 import { AdminCodes } from './components/AdminCodes';
 
 const IS_ADMIN_ROUTE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin');
+
+const GATE_STATUS_MESSAGE: Record<string, string> = {
+  unknown: 'Access code not found.',
+  exhausted: 'This access code has no uses remaining.',
+  revoked: 'This access code has been revoked.',
+};
 
 function errorMessage(e: unknown): string {
   return e instanceof ApiError ? e.message : 'Could not reach the backend. Is it running?';
@@ -53,21 +59,30 @@ export default function App() {
   // ── Access gate ─────────────────────────────────────────────────────
   const [unlocked, setUnlocked] = useState(false);
   const [accessCode, setAccessCode] = useState('');
+  const [gateLoading, setGateLoading] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
 
-  const handleSubmitCode = useCallback((code: string) => {
+  const handleSubmitCode = useCallback(async (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) {
       setGateError('Enter an access code.');
       return;
     }
-    // There's no lightweight endpoint to check a code up front — the backend
-    // only validates a code as a side effect of actually using it (first at
-    // /api/prompts). If it turns out invalid, we bounce back here with the
-    // real error instead of pretending to have checked it already.
-    setAccessCode(trimmed);
+    setGateLoading(true);
     setGateError(null);
-    setUnlocked(true);
+    try {
+      const status = await checkAccessStatus(trimmed);
+      if (status !== 'valid') {
+        setGateError(GATE_STATUS_MESSAGE[status] ?? 'This access code is not valid.');
+        return;
+      }
+      setAccessCode(trimmed);
+      setUnlocked(true);
+    } catch (e) {
+      setGateError(errorMessage(e));
+    } finally {
+      setGateLoading(false);
+    }
   }, []);
 
   // ── Admin ───────────────────────────────────────────────────────────
@@ -78,6 +93,7 @@ export default function App() {
   const [adminCodes, setAdminCodes] = useState<AccessCode[]>([]);
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  const [revokingCode, setRevokingCode] = useState<string | null>(null);
 
   const handleAdminLogin = useCallback(async (secret: string) => {
     setAdminLoading(true);
@@ -104,6 +120,19 @@ export default function App() {
       setGenError(errorMessage(e));
     } finally {
       setGenLoading(false);
+    }
+  }, [adminSecret]);
+
+  const handleRevokeCode = useCallback(async (code: string) => {
+    setRevokingCode(code);
+    setGenError(null);
+    try {
+      await revokeCode({ code, adminSecret });
+      setAdminCodes(await listCodes(adminSecret));
+    } catch (e) {
+      setGenError(errorMessage(e));
+    } finally {
+      setRevokingCode(null);
     }
   }, [adminSecret]);
 
@@ -308,14 +337,16 @@ export default function App() {
         codes={adminCodes}
         loading={genLoading}
         error={genError}
+        revokingCode={revokingCode}
         onGenerate={handleGenerateCode}
+        onRevoke={handleRevokeCode}
         onBack={() => { window.location.href = window.location.pathname; }}
       />
     );
   }
 
   if (!unlocked) {
-    return <AccessGate error={gateError} onSubmit={handleSubmitCode} />;
+    return <AccessGate error={gateError} loading={gateLoading} onSubmit={handleSubmitCode} />;
   }
 
   return (
@@ -364,7 +395,6 @@ export default function App() {
           products={analysisResult.products}
           sources={analysisResult.sources}
           onGoHome={goHome}
-          onOpenActivation={() => update({ screen: 'activation' })}
         />
       )}
 

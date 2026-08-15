@@ -3,10 +3,11 @@ import kikologo from '../assets/kiko-logo.png';
 
 interface AccessGateProps {
   error: string | null;
+  loading: boolean;
   onSubmit: (code: string) => void;
 }
 
-export function AccessGate({ error, onSubmit }: AccessGateProps) {
+export function AccessGate({ error, loading, onSubmit }: AccessGateProps) {
   const [code, setCode] = useState('');
 
   return (
@@ -20,7 +21,7 @@ export function AccessGate({ error, onSubmit }: AccessGateProps) {
           <h1 className="text-[21px] font-bold text-center mb-2">This preview is invite-only</h1>
           <p className="text-[13.5px] text-[#888] text-center mb-7 leading-relaxed">Enter your access code to continue. Don't have one? Ask whoever sent you here.</p>
 
-          <form onSubmit={e => { e.preventDefault(); onSubmit(code.trim()); }}>
+          <form onSubmit={e => { e.preventDefault(); if (!loading) onSubmit(code.trim()); }}>
             <input
               value={code}
               onChange={e => setCode(e.target.value)}
@@ -31,9 +32,10 @@ export function AccessGate({ error, onSubmit }: AccessGateProps) {
             {error && <div className="text-[13px] text-[#C2543A] text-center mb-3">{error}</div>}
             <button
               type="submit"
-              className="w-full bg-[#2D6AE0] text-white border-none rounded-[11px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors"
+              disabled={loading}
+              className="w-full bg-[#2D6AE0] text-white border-none rounded-[11px] py-3 text-sm font-semibold cursor-pointer hover:bg-[#2560d0] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Continue →
+              {loading ? 'Checking…' : 'Continue →'}
             </button>
           </form>
         </div>

@@ -1,4 +1,4 @@
-import type { AccessCode, AnalysisResult, DetectResult, Persona, PersonaEvent } from './types';
+import type { AccessCode, AccessStatus, AnalysisResult, DetectResult, Persona, PersonaEvent } from './types';
 
 const BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -21,6 +21,13 @@ async function parseErrorDetail(res: Response): Promise<string> {
 
 function personaPayload(personas: Persona[]) {
   return personas.map(p => ({ id: p.id, title: p.title, role: p.role, pains: p.pains, criteria: p.criteria }));
+}
+
+export async function checkAccessStatus(code: string): Promise<AccessStatus> {
+  const res = await fetch(`${BASE}/api/access/status?code=${encodeURIComponent(code)}`);
+  if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
+  const body = await res.json();
+  return body.status;
 }
 
 export async function detectBrand(args: { query: string; accessCode: string }): Promise<DetectResult> {
@@ -143,4 +150,12 @@ export async function listCodes(adminSecret: string): Promise<AccessCode[]> {
   if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
   const body = await res.json();
   return body.codes;
+}
+
+export async function revokeCode(args: { code: string; adminSecret: string }): Promise<void> {
+  const res = await fetch(`${BASE}/admin/codes/${encodeURIComponent(args.code)}`, {
+    method: 'DELETE',
+    headers: { 'X-Admin-Secret': args.adminSecret },
+  });
+  if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
 }

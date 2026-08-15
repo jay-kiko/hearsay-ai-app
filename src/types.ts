@@ -90,8 +90,11 @@ export interface AccessCode {
   usesTotal: number;
   usesRemaining: number;
   promptCalls: number;
+  revoked: boolean;
   createdAt: string;
 }
+
+export type AccessStatus = 'unknown' | 'revoked' | 'exhausted' | 'valid';
 
 export interface SitelistEntry {
   name: string;
