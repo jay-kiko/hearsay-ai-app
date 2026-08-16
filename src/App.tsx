@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AccessCode, AnalysisResult, AppState, NewPersona, PersonaResult } from './types';
+import type { AccessCode, AnalysisResult, AppState, CategoryOption, NewPersona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
 import { ApiError, checkAccessStatus, detectBrand, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis } from './api';
 import { Nav } from './components/Nav';
@@ -13,6 +13,7 @@ import { Activation } from './components/Activation';
 import { AccessGate } from './components/AccessGate';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminCodes } from './components/AdminCodes';
+import { Toast } from './components/Toast';
 
 const IS_ADMIN_ROUTE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin');
 
@@ -48,6 +49,18 @@ function detectMessagesFor(query: string): string[] {
   return [`Looking up "${label}"…`, 'Searching the web for real competitors…', 'Confirming details…'];
 }
 
+// Unlike /api/detect, the analysis run has real per-persona settle events
+// over SSE — so instead of a cosmetic timer, this extrapolates from actual
+// elapsed time and completions so far. No estimate exists until the first
+// persona settles, since there's nothing yet to extrapolate from.
+function formatEta(ms: number): string {
+  const totalSeconds = Math.max(1, Math.round(ms / 1000));
+  if (totalSeconds < 60) return `~${totalSeconds}s remaining`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `~${minutes}m remaining` : `~${minutes}m ${seconds}s remaining`;
+}
+
 // Backend sends share as a 0-1 fraction; the charts here render it as a
 // whole-number percentage.
 function normalizeResult(result: AnalysisResult): AnalysisResult {
@@ -60,7 +73,7 @@ const INITIAL_STATE: AppState = {
   query: '',
   brand: 'Flowstate',
   industry: 'Project Management Software',
-  competitors: ['Asana', 'Monday.com', 'ClickUp', 'Notion'],
+  competitors: ['Asana', 'Monday.com', 'ClickUp', 'Notion'].map(name => ({ name, matchNames: [name] })),
   buyerContext: '',
   brandSummary: '',
   market: '',
@@ -87,11 +100,16 @@ export default function App() {
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_CODE_KEY) !== null);
   const [gateLoading, setGateLoading] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
+  // Separate from gateError: gateError is inline form-validation feedback for
+  // a code the user is actively typing in; gateNotice is a toast for landing
+  // back on this screen mid-session because a previously-valid code just
+  // turned out to be exhausted/revoked/unknown out from under them.
+  const [gateNotice, setGateNotice] = useState<string | null>(null);
 
   const lockOut = useCallback((message: string) => {
     sessionStorage.removeItem(SESSION_CODE_KEY);
     setUnlocked(false);
-    setGateError(message);
+    setGateNotice(message);
   }, []);
 
   const handleSubmitCode = useCallback(async (code: string) => {
@@ -102,6 +120,7 @@ export default function App() {
     }
     setGateLoading(true);
     setGateError(null);
+    setGateNotice(null);
     try {
       const status = await checkAccessStatus(trimmed);
       if (status !== 'valid') {
@@ -177,7 +196,14 @@ export default function App() {
   const detectTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  // Set only when the user picks one of the fetched category suggestions —
+  // each carries its own correctly-scoped buyerContext, distinct from the
+  // brand-wide one /api/detect returned. null means "no override": either
+  // nothing picked yet, skipped, or a custom free-text category (no scoped
+  // buyerContext exists for those) — all three fall back to the original
+  // detect-level buyerContext.
+  const [categoryBuyerContextOverride, setCategoryBuyerContextOverride] = useState<string | null>(null);
   const [personasLoading, setPersonasLoading] = useState(false);
   const [personasError, setPersonasError] = useState<string | null>(null);
   const [personasProgress, setPersonasProgress] = useState(0);
@@ -187,6 +213,8 @@ export default function App() {
   const [runError, setRunError] = useState<string | null>(null);
   const [liveResults, setLiveResults] = useState<Record<string, PersonaResult>>({});
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [runEta, setRunEta] = useState<string | null>(null);
+  const runStartedAtRef = useRef<number | null>(null);
 
   const update = useCallback((patch: Partial<AppState>) => setState(s => ({ ...s, ...patch })), []);
 
@@ -204,10 +232,13 @@ export default function App() {
     setRunError(null);
     setLiveResults({});
     setAnalysisResult(null);
+    setRunEta(null);
+    runStartedAtRef.current = null;
     setPromptsError(null);
     setDetectError(null);
     setCategoriesError(null);
     setCategories([]);
+    setCategoryBuyerContextOverride(null);
     setPersonasError(null);
     setState(s => ({ ...s, screen: 'home', step: 1, runStatuses: {}, runProgress: 0, personaPrompts: {} }));
   }, [closeStream]);
@@ -269,6 +300,7 @@ export default function App() {
     update({ step: 2 });
     setCategoriesLoading(true);
     setCategoriesError(null);
+    setCategoryBuyerContextOverride(null);
     try {
       const result = await getCategories({
         brand: state.brand,
@@ -313,7 +345,7 @@ export default function App() {
         brand: state.brand,
         industry: state.industry,
         competitors: state.competitors,
-        buyerContext: state.buyerContext,
+        buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
         brandSummary: state.brandSummary,
         market: state.market,
         accessCode,
@@ -330,7 +362,7 @@ export default function App() {
       personasTimerRef.current = null;
       setPersonasLoading(false);
     }
-  }, [state.brand, state.industry, state.competitors, state.buyerContext, state.brandSummary, state.market, accessCode, update, lockOut]);
+  }, [state.brand, state.industry, state.competitors, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   const goToPrompts = useCallback(async () => {
     update({ step: 5 });
@@ -342,7 +374,7 @@ export default function App() {
         brand: state.brand,
         industry: state.industry,
         personas: selected,
-        buyerContext: state.buyerContext,
+        buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
         brandSummary: state.brandSummary,
         market: state.market,
         accessCode,
@@ -359,7 +391,7 @@ export default function App() {
     } finally {
       setPromptsLoading(false);
     }
-  }, [state.personas, state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, accessCode, update, lockOut]);
+  }, [state.personas, state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   const launchAnalysis = useCallback(async () => {
     const selected = state.personas.filter(p => p.selected);
@@ -368,6 +400,8 @@ export default function App() {
     setRunError(null);
     setLiveResults({});
     setAnalysisResult(null);
+    setRunEta(null);
+    runStartedAtRef.current = null;
     update({ screen: 'running', runProgress: 0, runStatuses: {} });
 
     try {
@@ -377,11 +411,13 @@ export default function App() {
         competitors: state.competitors,
         personas: selected,
         prompts: state.personaPrompts,
-        buyerContext: state.buyerContext,
+        buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
         brandSummary: state.brandSummary,
         market: state.market,
         accessCode,
       });
+
+      runStartedAtRef.current = Date.now();
 
       let settledCount = 0;
       closeStreamRef.current = streamAnalysis(jobId, {
@@ -393,6 +429,15 @@ export default function App() {
           if (event.status === 'done' || event.status === 'error') {
             settledCount++;
             update({ runProgress: Math.round((settledCount / selected.length) * 100) });
+
+            const remaining = selected.length - settledCount;
+            if (remaining <= 0 || runStartedAtRef.current === null) {
+              setRunEta(null);
+            } else {
+              const elapsed = Date.now() - runStartedAtRef.current;
+              const avgPerPersona = elapsed / settledCount;
+              setRunEta(formatEta(avgPerPersona * remaining));
+            }
           }
         },
         onComplete: result => {
@@ -402,9 +447,13 @@ export default function App() {
         onError: message => setRunError(message),
       });
     } catch (e) {
-      setRunError(errorMessage(e));
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+        lockOut(e.message);
+      } else {
+        setRunError(errorMessage(e));
+      }
     }
-  }, [state.personas, state.brand, state.industry, state.competitors, state.personaPrompts, state.buyerContext, state.brandSummary, state.market, accessCode, update]);
+  }, [state.personas, state.brand, state.industry, state.competitors, state.personaPrompts, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   useEffect(() => () => closeStream(), [closeStream]);
 
@@ -446,12 +495,25 @@ export default function App() {
     onBrandSummary: (v: string) => update({ brandSummary: v }),
     onMarket: (v: string) => update({ market: v }),
     onCustomCategory: (v: string) => update({ customCategory: v }),
-    onRemoveCompetitor: (c: string) => update({ competitors: competitors.filter(x => x !== c) }),
+    onSelectCategory: (category: CategoryOption) => {
+      update({ industry: category.name });
+      setCategoryBuyerContextOverride(category.buyerContext);
+    },
+    onUseCustomCategory: (v: string) => {
+      const trimmed = v.trim();
+      if (!trimmed) return;
+      update({ industry: trimmed });
+      setCategoryBuyerContextOverride(null);
+    },
+    onRemoveCompetitor: (name: string) => update({ competitors: competitors.filter(x => x.name !== name) }),
     onNewCompetitor: (v: string) => update({ newCompetitor: v }),
     onAddCompetitor: () => {
       const v = newCompetitor.trim();
       if (!v) return;
-      update({ competitors: [...competitors, v], newCompetitor: '' });
+      // A single-alias competitor is a valid, normal case for the backend —
+      // it just won't catch sub-brand mentions the way an AI-detected one
+      // with a fuller alias list would.
+      update({ competitors: [...competitors, { name: v, matchNames: [v] }], newCompetitor: '' });
     },
     onTogglePersona: (id: string) => update({ personas: personas.map(p => p.id === id ? { ...p, selected: !p.selected } : p) }),
     onExpandPersona: (id: string) => update({ personas: personas.map(p => p.id === id ? { ...p, expanded: !p.expanded } : p) }),
@@ -501,13 +563,25 @@ export default function App() {
         revokingCode={revokingCode}
         onGenerate={handleGenerateCode}
         onRevoke={handleRevokeCode}
-        onBack={() => { window.location.href = window.location.pathname; }}
+        onBack={() => {
+          // Admin auth and the visitor access-code gate are independent —
+          // leaving admin should always drop back to a fresh gate check,
+          // not silently reuse whatever code this tab happened to have
+          // stored from an earlier, unrelated visitor session.
+          sessionStorage.removeItem(SESSION_CODE_KEY);
+          window.location.href = window.location.pathname;
+        }}
       />
     );
   }
 
   if (!unlocked) {
-    return <AccessGate error={gateError} loading={gateLoading} onSubmit={handleSubmitCode} />;
+    return (
+      <>
+        <AccessGate error={gateError} loading={gateLoading} onSubmit={handleSubmitCode} />
+        {gateNotice && <Toast message={gateNotice} onClose={() => setGateNotice(null)} />}
+      </>
+    );
   }
 
   return (
@@ -515,7 +589,6 @@ export default function App() {
       <Nav
         screen={screen}
         onGoHome={goHome}
-        onOpenHistory={() => update({ screen: 'history' })}
         onOpenSettings={() => update({ screen: 'settings' })}
         onFocusSearch={focusSearch}
       />
@@ -525,7 +598,6 @@ export default function App() {
           query={query}
           onQuery={v => update({ query: v })}
           onStartWizard={startWizard}
-          onOpenHistory={() => update({ screen: 'history' })}
           detecting={detecting}
           detectError={detectError}
           detectMessage={detectSlow ? "This is taking a little longer than usual — ambiguous names can take a bit. Hang tight." : detectMessage}
@@ -541,6 +613,7 @@ export default function App() {
           personas={personas}
           runStatuses={runStatuses}
           runProgress={runProgress}
+          eta={runEta}
           error={runError}
           onBack={goHome}
         />

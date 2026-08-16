@@ -5,11 +5,12 @@ interface RunningProps {
   personas: Persona[];
   runStatuses: Record<string, RunStatus>;
   runProgress: number;
+  eta: string | null;
   error: string | null;
   onBack: () => void;
 }
 
-export function Running({ brand, personas, runStatuses, runProgress, error, onBack }: RunningProps) {
+export function Running({ brand, personas, runStatuses, runProgress, eta, error, onBack }: RunningProps) {
   const selected = personas.filter(p => p.selected);
 
   if (error) {
@@ -36,7 +37,7 @@ export function Running({ brand, personas, runStatuses, runProgress, error, onBa
           </div>
           <div className="flex justify-between mt-2.5 text-[12.5px] text-[#999]">
             <span>{runProgress}% complete</span>
-            <span>~2 min remaining</span>
+            <span>{eta ?? 'Estimating…'}</span>
           </div>
         </div>
       </div>

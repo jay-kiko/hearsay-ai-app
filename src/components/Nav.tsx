@@ -15,12 +15,11 @@ function scrollTo(id: string) {
 interface NavProps {
   screen: Screen;
   onGoHome: () => void;
-  onOpenHistory: () => void;
   onOpenSettings: () => void;
   onFocusSearch: () => void;
 }
 
-export function Nav({ screen, onGoHome, onOpenHistory, onOpenSettings, onFocusSearch }: NavProps) {
+export function Nav({ screen, onGoHome, onOpenSettings, onFocusSearch }: NavProps) {
   const isHome = screen === 'home';
   const showWizardNav = screen !== 'home';
 
@@ -57,9 +56,13 @@ export function Nav({ screen, onGoHome, onOpenHistory, onOpenSettings, onFocusSe
       {showWizardNav && (
         <div className="flex items-center gap-0.5 sm:gap-1.5">
           <span onClick={onGoHome} className="text-[12.5px] sm:text-sm text-[#5A5A5A] cursor-pointer px-2 sm:px-[14px] py-1.5 sm:py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors whitespace-nowrap">New Analysis</span>
-          <span onClick={onOpenHistory} className="text-[12.5px] sm:text-sm text-[#5A5A5A] cursor-pointer px-2 sm:px-[14px] py-1.5 sm:py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors">History</span>
+          <div className="relative group">
+            <span className="block text-[12.5px] sm:text-sm text-[#5A5A5A] opacity-50 cursor-not-allowed px-2 sm:px-[14px] py-1.5 sm:py-2 rounded-[9px]">History</span>
+            <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 whitespace-nowrap rounded-[8px] bg-[#1b1b1b] px-3 py-1.5 text-[12px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
+              Coming soon
+            </div>
+          </div>
           <span onClick={onOpenSettings} className="text-[12.5px] sm:text-sm text-[#5A5A5A] cursor-pointer px-2 sm:px-[14px] py-1.5 sm:py-2 rounded-[9px] hover:text-[#141414] hover:bg-[#F4F4F4] transition-colors">Settings</span>
-          <div className="w-7 h-7 sm:w-[34px] sm:h-[34px] rounded-full bg-[#EEF3FE] text-[#2D6AE0] flex items-center justify-center text-[11px] sm:text-[13px] font-bold ml-1 sm:ml-2 flex-shrink-0">AK</div>
         </div>
       )}
     </nav>

@@ -4,7 +4,6 @@ interface HomeProps {
   query: string;
   onQuery: (val: string) => void;
   onStartWizard: () => void;
-  onOpenHistory: () => void;
   detecting: boolean;
   detectError: string | null;
   detectMessage: string;
@@ -20,7 +19,7 @@ const PILLS = [
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
-function Hero({ query, onQuery, onStartWizard, onOpenHistory, detecting, detectError, detectMessage, searchRef }: HomeProps) {
+function Hero({ query, onQuery, onStartWizard, detecting, detectError, detectMessage, searchRef }: HomeProps) {
   return (
     <div className="max-w-[780px] mx-auto px-4 sm:px-6 py-14 sm:py-[84px] pb-16 sm:pb-[100px] text-center animate-fadeUp">
       <div className="flex items-center justify-center gap-2 text-[28px] sm:text-[36px]">
@@ -81,7 +80,12 @@ function Hero({ query, onQuery, onStartWizard, onOpenHistory, detecting, detectE
       </div>
 
       <div className="mt-16 flex gap-9 justify-center text-[#9A9A9A] text-[13px]">
-        <span onClick={onOpenHistory} className="cursor-pointer hover:text-[#555] transition-colors">View past analyses →</span>
+        <div className="relative group inline-block">
+          <span className="opacity-50 cursor-not-allowed">View past analyses →</span>
+          <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 whitespace-nowrap rounded-[8px] bg-[#1b1b1b] px-3 py-1.5 text-[12px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 z-10">
+            Coming soon
+          </div>
+        </div>
       </div>
     </div>
   );

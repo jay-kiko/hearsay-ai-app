@@ -1,4 +1,4 @@
-import type { AccessCode, AccessStatus, AnalysisResult, DetectResult, GeneratedPersona, Persona, PersonaEvent } from './types';
+import type { AccessCode, AccessStatus, AnalysisResult, CategoryOption, Competitor, DetectResult, GeneratedPersona, Persona, PersonaEvent } from './types';
 
 const BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -55,11 +55,11 @@ export async function detectBrand(args: { query: string; accessCode: string }): 
 export async function getCategories(args: {
   brand: string;
   industry: string;
-  competitors: string[];
+  competitors: Competitor[];
   buyerContext?: string;
   brandSummary?: string;
   accessCode: string;
-}): Promise<string[]> {
+}): Promise<CategoryOption[]> {
   const res = await fetch(`${BASE}/api/categories`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -80,7 +80,7 @@ export async function getCategories(args: {
 export async function generatePersonas(args: {
   brand: string;
   industry: string;
-  competitors: string[];
+  competitors: Competitor[];
   buyerContext?: string;
   brandSummary?: string;
   market?: string;
@@ -134,7 +134,7 @@ export async function generatePrompts(args: {
 export async function startAnalysis(args: {
   brand: string;
   industry: string;
-  competitors: string[];
+  competitors: Competitor[];
   personas: Persona[];
   prompts: Record<string, string[]>;
   buyerContext?: string;

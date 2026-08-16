@@ -1,14 +1,14 @@
-import type { Persona, AIModel, NewPersona } from '../types';
+import type { Persona, AIModel, CategoryOption, Competitor, NewPersona } from '../types';
 
 interface WizardProps {
   step: number;
   brand: string;
   industry: string;
-  competitors: string[];
+  competitors: Competitor[];
   brandSummary: string;
   market: string;
   customCategory: string;
-  categories: string[];
+  categories: CategoryOption[];
   categoriesLoading: boolean;
   categoriesError: string | null;
   newCompetitor: string;
@@ -29,6 +29,8 @@ interface WizardProps {
   onBrandSummary: (v: string) => void;
   onMarket: (v: string) => void;
   onCustomCategory: (v: string) => void;
+  onSelectCategory: (category: CategoryOption) => void;
+  onUseCustomCategory: (v: string) => void;
   onRemoveCompetitor: (c: string) => void;
   onNewCompetitor: (v: string) => void;
   onAddCompetitor: () => void;
@@ -124,9 +126,9 @@ function StepBrand({ brand, industry, competitors, brandSummary, newCompetitor, 
           <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[11px]">Competitors detected</label>
           <div className="flex flex-wrap gap-[9px] items-center">
             {competitors.map(c => (
-              <span key={c} className="inline-flex items-center gap-2 bg-[#F4F6F9] border border-[#E6E9EE] rounded-full py-[7px] pl-[14px] pr-2 text-[13.5px] text-[#333]">
-                {c}
-                <span onClick={() => onRemoveCompetitor(c)} className="w-[18px] h-[18px] rounded-full bg-[#E2E6EC] text-[#7A8290] flex items-center justify-center text-[13px] cursor-pointer hover:bg-[#d0d4dc]">×</span>
+              <span key={c.name} className="inline-flex items-center gap-2 bg-[#F4F6F9] border border-[#E6E9EE] rounded-full py-[7px] pl-[14px] pr-2 text-[13.5px] text-[#333]">
+                {c.name}
+                <span onClick={() => onRemoveCompetitor(c.name)} className="w-[18px] h-[18px] rounded-full bg-[#E2E6EC] text-[#7A8290] flex items-center justify-center text-[13px] cursor-pointer hover:bg-[#d0d4dc]">×</span>
               </span>
             ))}
             <span className="inline-flex items-center gap-1.5">
@@ -149,7 +151,7 @@ function StepBrand({ brand, industry, competitors, brandSummary, newCompetitor, 
   );
 }
 
-function StepCategory({ industry, market, customCategory, categories, categoriesLoading, categoriesError, onIndustry, onMarket, onCustomCategory, onPrevStep, onNextStep }: Pick<WizardProps, 'industry' | 'market' | 'customCategory' | 'categories' | 'categoriesLoading' | 'categoriesError' | 'onIndustry' | 'onMarket' | 'onCustomCategory' | 'onPrevStep' | 'onNextStep'>) {
+function StepCategory({ industry, market, customCategory, categories, categoriesLoading, categoriesError, onMarket, onCustomCategory, onSelectCategory, onUseCustomCategory, onPrevStep, onNextStep }: Pick<WizardProps, 'industry' | 'market' | 'customCategory' | 'categories' | 'categoriesLoading' | 'categoriesError' | 'onMarket' | 'onCustomCategory' | 'onSelectCategory' | 'onUseCustomCategory' | 'onPrevStep' | 'onNextStep'>) {
   if (categoriesLoading) {
     return (
       <div className="animate-fadeUp text-center py-20 max-w-[380px] mx-auto">
@@ -183,13 +185,13 @@ function StepCategory({ industry, market, customCategory, categories, categories
       {categories.length > 0 && (
         <div className="flex flex-col gap-2.5">
           {categories.map(cat => {
-            const selected = industry === cat;
+            const selected = industry === cat.name;
             return (
-              <div key={cat} onClick={() => onIndustry(cat)} className={`flex items-center gap-3 border rounded-[13px] px-[18px] py-[14px] cursor-pointer transition-colors ${selected ? 'border-[#2D6AE0] bg-[#EEF3FE]' : 'border-[#ECECEC] bg-white hover:border-[#D5D5D5]'}`}>
+              <div key={cat.name} onClick={() => onSelectCategory(cat)} className={`flex items-center gap-3 border rounded-[13px] px-[18px] py-[14px] cursor-pointer transition-colors ${selected ? 'border-[#2D6AE0] bg-[#EEF3FE]' : 'border-[#ECECEC] bg-white hover:border-[#D5D5D5]'}`}>
                 <div className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center ${selected ? 'border-[#2D6AE0]' : 'border-[#D2D2D2]'}`}>
                   {selected && <div className="w-2 h-2 rounded-full bg-[#2D6AE0]" />}
                 </div>
-                <span className="text-[14.5px] text-[#222] font-medium">{cat}</span>
+                <span className="text-[14.5px] text-[#222] font-medium">{cat.name}</span>
               </div>
             );
           })}
@@ -200,11 +202,11 @@ function StepCategory({ industry, market, customCategory, categories, categories
         <input
           value={customCategory}
           onChange={e => onCustomCategory(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && customTrimmed && onIndustry(customTrimmed)}
+          onKeyDown={e => e.key === 'Enter' && customTrimmed && onUseCustomCategory(customTrimmed)}
           placeholder="Or type your own category"
           className={`flex-1 border rounded-[11px] px-[14px] py-3 text-[14.5px] focus:outline-none transition-colors ${customTrimmed && industry === customTrimmed ? 'border-[#2D6AE0]' : 'border-[#E2E2E2] focus:border-[#2D6AE0]'}`}
         />
-        <button onClick={() => customTrimmed && onIndustry(customTrimmed)} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-5 py-3 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8] whitespace-nowrap">Use this</button>
+        <button onClick={() => customTrimmed && onUseCustomCategory(customTrimmed)} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-5 py-3 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8] whitespace-nowrap">Use this</button>
       </div>
 
       <span onClick={onNextStep} className="inline-block mt-5 text-[13.5px] text-[#888] cursor-pointer hover:text-[#555] underline underline-offset-2">Continue without a product category →</span>
@@ -427,7 +429,7 @@ function StepReview({ brand, industry, competitors, personas, models, market, sa
 
   const rows = [
     { label: 'Brand', value: <span>{brand} <span className="text-[#999] font-normal">in {industry}</span></span> },
-    { label: 'Competitors', value: <div className="flex flex-wrap gap-[7px] justify-end">{competitors.map(c => <span key={c} className="text-[13px] bg-[#F4F6F9] border border-[#E6E9EE] rounded-full px-3 py-[5px] text-[#444]">{c}</span>)}</div> },
+    { label: 'Competitors', value: <div className="flex flex-wrap gap-[7px] justify-end">{competitors.map(c => <span key={c.name} className="text-[13px] bg-[#F4F6F9] border border-[#E6E9EE] rounded-full px-3 py-[5px] text-[#444]">{c.name}</span>)}</div> },
     ...(market.trim() ? [{ label: 'Geographic focus', value: market.trim() }] : []),
     { label: 'Personas', value: `${selectedCount} selected` },
     { label: 'AI Models', value: enabledModels },

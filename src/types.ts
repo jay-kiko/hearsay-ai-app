@@ -2,6 +2,11 @@ export type Screen = 'home' | 'wizard' | 'running' | 'results' | 'history' | 'se
 export type RunStatus = 'waiting' | 'running' | 'done' | 'error';
 export type Sentiment = 'Positive' | 'Neutral' | 'Negative';
 
+export interface Competitor {
+  name: string;
+  matchNames: string[];
+}
+
 export interface Persona {
   id: string;
   title: string;
@@ -29,6 +34,16 @@ export interface ResponsePart {
   kind: 'brand' | 'competitor' | 'normal';
 }
 
+export interface PersonaExchange {
+  prompt: string;
+  mentioned: boolean;
+  sentiment: Sentiment;
+  rank: number | null;
+  vis: number;
+  quote: string;
+  parts: ResponsePart[];
+}
+
 export interface PersonaResult {
   prompt: string;
   mentioned: boolean;
@@ -37,6 +52,7 @@ export interface PersonaResult {
   rank: number | null;
   quote: string;
   parts: ResponsePart[];
+  exchanges: PersonaExchange[];
 }
 
 export interface HistoryEntry {
@@ -132,9 +148,14 @@ export interface AnalysisResult {
 export interface DetectResult {
   brand: string;
   industry: string;
-  competitors: string[];
+  competitors: Competitor[];
   buyerContext: string;
   brandSummary: string;
+}
+
+export interface CategoryOption {
+  name: string;
+  buyerContext: string;
 }
 
 export interface GeneratedPersona {
@@ -160,7 +181,7 @@ export interface AppState {
   query: string;
   brand: string;
   industry: string;
-  competitors: string[];
+  competitors: Competitor[];
   buyerContext: string;
   brandSummary: string;
   market: string;

@@ -1,12 +1,12 @@
 import { Fragment, useState } from 'react';
-import type { Persona, PersonaResult, Product, Overview, Sources, Sentiment } from '../types';
+import type { Competitor, Persona, PersonaResult, Product, Overview, Sources, Sentiment } from '../types';
 import { buildReportCsv, downloadCsv } from '../csv';
 
 interface ResultsProps {
   brand: string;
   industry: string;
   personas: Persona[];
-  competitors: string[];
+  competitors: Competitor[];
   results: Record<string, PersonaResult>;
   overview: Overview;
   products: Product[];
@@ -53,16 +53,32 @@ function hexA(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// Same 3-color semantic palette already used for sentiment elsewhere in this
+// report (green/blue/red-orange), so a low score reads as "needs work"
+// without needing a legend to explain a new color.
+function visibilityTierColor(score: number): string {
+  if (score >= 70) return '#1E9E6A';
+  if (score >= 40) return ACCENT;
+  return '#D2603F';
+}
+
+function visibilityTierMessage(score: number): string {
+  if (score >= 70) return 'Solid presence across most personas';
+  if (score >= 40) return 'Mixed presence across personas';
+  return 'Limited presence across personas';
+}
+
 function VisibilityRing({ score }: { score: number }) {
   const r = 50;
   const circumference = 2 * Math.PI * r;
   const offset = circumference - (score / 100) * circumference;
+  const color = visibilityTierColor(score);
   return (
     <svg width="92" height="92" viewBox="0 0 120 120" className="flex-shrink-0">
       <circle cx="60" cy="60" r={r} fill="none" stroke="#EEEEEE" strokeWidth="11" />
-      <circle cx="60" cy="60" r={r} fill="none" stroke="#2D6AE0" strokeWidth="11" strokeLinecap="round"
+      <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="11" strokeLinecap="round"
         strokeDasharray={circumference} strokeDashoffset={offset} transform="rotate(-90 60 60)" />
-      <text x="60" y="58" textAnchor="middle" fontSize="32" fontWeight="700" fill="#1b1b1b">{score}</text>
+      <text x="60" y="58" textAnchor="middle" fontSize="32" fontWeight="700" fill={color}>{score}</text>
       <text x="60" y="78" textAnchor="middle" fontSize="13" fill="#A0A0A0">/100</text>
     </svg>
   );
@@ -298,7 +314,7 @@ export function Results({ brand, industry, personas, results, overview, products
           <VisibilityRing score={overview.visibilityScore} />
           <div>
             <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Visibility Score</div>
-            <div className="text-[13.5px] text-[#666] mt-1.5 leading-snug">Averaged across {overview.total} persona{overview.total === 1 ? '' : 's'} — each scored by mention rank and sentiment</div>
+            <div className="text-[13.5px] text-[#666] mt-1.5 leading-snug">{visibilityTierMessage(overview.visibilityScore)}</div>
           </div>
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] break-inside-avoid">
@@ -368,17 +384,28 @@ export function Results({ brand, industry, personas, results, overview, products
                   <span className="font-semibold text-[#1b1b1b] flex-shrink-0">Visibility {r.vis}/100</span>
                   <span className="text-[#888] leading-relaxed">{visibilityBreakdown(r)}</span>
                 </div>
-                <div className="text-[12px] text-[#999] font-semibold uppercase tracking-[0.04em] mt-4 mb-2">Prompt sent</div>
-                <div className="text-sm text-[#555] italic leading-[1.55] bg-[#FAFAFA] rounded-[10px] px-[15px] py-[13px]">"{r.prompt}"</div>
-                <div className="text-[12px] text-[#999] font-semibold uppercase tracking-[0.04em] mt-[18px] mb-2">Claude's response</div>
-                <div className="text-[15px] leading-[1.65] text-[#2b2b2b]">
-                  {r.parts.map((pt, i) => {
-                    if (pt.kind === 'brand') return <span key={i} className="text-[#2D6AE0] font-semibold">{pt.text}</span>;
-                    if (pt.kind === 'competitor') return <span key={i} className="bg-[#FBEDE8] text-[#C2543A] rounded px-[3px] font-medium">{pt.text}</span>;
-                    return <span key={i}>{pt.text}</span>;
-                  })}
-                </div>
-                <div className="flex items-center gap-[18px] mt-4 text-[12.5px] text-[#999]">
+                {r.exchanges.map((ex, i) => (
+                  <div key={i} className={i === 0 ? 'mt-4' : 'mt-6 pt-6 border-t border-[#F2F2F2]'}>
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      <div className="text-[12px] text-[#999] font-semibold uppercase tracking-[0.04em]">
+                        {r.exchanges.length > 1 ? `Prompt ${i + 1} of ${r.exchanges.length}` : 'Prompt sent'}
+                      </div>
+                      <div className="text-[11.5px] text-[#999]">
+                        {ex.mentioned ? <span className="text-[#2D6AE0] font-semibold">Mentioned</span> : 'Not mentioned'} · {ex.sentiment} · Visibility {ex.vis}/100
+                      </div>
+                    </div>
+                    <div className="text-sm text-[#555] italic leading-[1.55] bg-[#FAFAFA] rounded-[10px] px-[15px] py-[13px] mt-2">"{ex.prompt}"</div>
+                    <div className="text-[12px] text-[#999] font-semibold uppercase tracking-[0.04em] mt-[18px] mb-2">Claude's response</div>
+                    <div className="text-[15px] leading-[1.65] text-[#2b2b2b]">
+                      {ex.parts.map((pt, j) => {
+                        if (pt.kind === 'brand') return <span key={j} className="text-[#2D6AE0] font-semibold">{pt.text}</span>;
+                        if (pt.kind === 'competitor') return <span key={j} className="bg-[#FBEDE8] text-[#C2543A] rounded px-[3px] font-medium">{pt.text}</span>;
+                        return <span key={j}>{pt.text}</span>;
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center gap-[18px] mt-5 text-[12.5px] text-[#999]">
                   <span><span className="inline-block w-2.5 h-2.5 rounded-[3px] bg-[#2D6AE0] align-[-1px] mr-1.5" />{brand}</span>
                   <span><span className="inline-block w-2.5 h-2.5 rounded-[3px] bg-[#E7A491] align-[-1px] mr-1.5" />Competitors</span>
                 </div>
