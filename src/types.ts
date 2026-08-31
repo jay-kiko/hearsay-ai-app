@@ -181,11 +181,13 @@ export interface AppState {
   query: string;
   brand: string;
   industry: string;
+  detectedIndustry: string;
   competitors: Competitor[];
   buyerContext: string;
   brandSummary: string;
   market: string;
   customCategory: string;
+  selectedCategories: CategoryOption[];
   newCompetitor: string;
   addingPersona: boolean;
   newPersona: NewPersona;

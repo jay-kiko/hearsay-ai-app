@@ -1,4 +1,16 @@
+import { useState } from 'react';
 import type { Persona, AIModel, CategoryOption, Competitor, NewPersona } from '../types';
+
+// Placeholder for a not-yet-built backend endpoint (POST /api/prompts/suggest)
+// that would adapt a user-authored seed prompt into each persona's own voice
+// via a real AI call. Until that exists, this does a plain client-side
+// reframe — good enough to demo the preview/bulk-apply UI, not a real
+// suggestion engine.
+function mockSuggestPromptForPersona(seed: string, persona: Persona): string {
+  const trimmed = seed.trim().replace(/[?.!]+$/, '');
+  const voice = (persona.role || persona.title).trim().replace(/[.!]+$/, '');
+  return `As ${/^[aeiou]/i.test(voice) ? 'an' : 'a'} ${voice.toLowerCase()}, ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}?`;
+}
 
 interface WizardProps {
   step: number;
@@ -9,6 +21,7 @@ interface WizardProps {
   market: string;
   customCategory: string;
   categories: CategoryOption[];
+  selectedCategories: CategoryOption[];
   categoriesLoading: boolean;
   categoriesError: string | null;
   newCompetitor: string;
@@ -29,7 +42,7 @@ interface WizardProps {
   onBrandSummary: (v: string) => void;
   onMarket: (v: string) => void;
   onCustomCategory: (v: string) => void;
-  onSelectCategory: (category: CategoryOption) => void;
+  onToggleCategory: (category: CategoryOption) => void;
   onUseCustomCategory: (v: string) => void;
   onRemoveCompetitor: (c: string) => void;
   onNewCompetitor: (v: string) => void;
@@ -151,7 +164,7 @@ function StepBrand({ brand, industry, competitors, brandSummary, newCompetitor, 
   );
 }
 
-function StepCategory({ industry, market, customCategory, categories, categoriesLoading, categoriesError, onMarket, onCustomCategory, onSelectCategory, onUseCustomCategory, onPrevStep, onNextStep }: Pick<WizardProps, 'industry' | 'market' | 'customCategory' | 'categories' | 'categoriesLoading' | 'categoriesError' | 'onMarket' | 'onCustomCategory' | 'onSelectCategory' | 'onUseCustomCategory' | 'onPrevStep' | 'onNextStep'>) {
+function StepCategory({ industry, market, customCategory, categories, selectedCategories, categoriesLoading, categoriesError, onMarket, onCustomCategory, onToggleCategory, onUseCustomCategory, onPrevStep, onNextStep }: Pick<WizardProps, 'industry' | 'market' | 'customCategory' | 'categories' | 'selectedCategories' | 'categoriesLoading' | 'categoriesError' | 'onMarket' | 'onCustomCategory' | 'onToggleCategory' | 'onUseCustomCategory' | 'onPrevStep' | 'onNextStep'>) {
   if (categoriesLoading) {
     return (
       <div className="animate-fadeUp text-center py-20 max-w-[380px] mx-auto">
@@ -176,20 +189,30 @@ function StepCategory({ industry, market, customCategory, categories, categories
   }
 
   const customTrimmed = customCategory.trim();
+  const isSelected = (name: string) => selectedCategories.some(c => c.name === name);
+  const addCustom = () => {
+    if (!customTrimmed) return;
+    onUseCustomCategory(customTrimmed);
+    onCustomCategory('');
+  };
+  // Custom entries have no other visual home once added, so they get their
+  // own chip row; AI-suggested picks already show as checked in the list
+  // above, so showing them again here would just be duplication.
+  const customSelections = selectedCategories.filter(c => !categories.some(ac => ac.name === c.name));
 
   return (
     <div className="animate-fadeUp">
       <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">Narrow down your product category</h2>
-      <p className="text-[15.5px] text-[#777] mb-7 max-w-[620px]">Optional — pick the category that best matches what {"you're"} actually evaluating, or skip and we'll keep using "{industry}".</p>
+      <p className="text-[15.5px] text-[#777] mb-7 max-w-[620px]">Optional — select any that match what {"you're"} actually evaluating (pick as many as apply), or skip and we'll keep using "{industry}".</p>
 
       {categories.length > 0 && (
         <div className="flex flex-col gap-2.5">
           {categories.map(cat => {
-            const selected = industry === cat.name;
+            const selected = isSelected(cat.name);
             return (
-              <div key={cat.name} onClick={() => onSelectCategory(cat)} className={`flex items-center gap-3 border rounded-[13px] px-[18px] py-[14px] cursor-pointer transition-colors ${selected ? 'border-[#2D6AE0] bg-[#EEF3FE]' : 'border-[#ECECEC] bg-white hover:border-[#D5D5D5]'}`}>
-                <div className={`w-[18px] h-[18px] rounded-full border-2 flex-shrink-0 flex items-center justify-center ${selected ? 'border-[#2D6AE0]' : 'border-[#D2D2D2]'}`}>
-                  {selected && <div className="w-2 h-2 rounded-full bg-[#2D6AE0]" />}
+              <div key={cat.name} onClick={() => onToggleCategory(cat)} className={`flex items-center gap-3 border rounded-[13px] px-[18px] py-[14px] cursor-pointer transition-colors ${selected ? 'border-[#2D6AE0] bg-[#EEF3FE]' : 'border-[#ECECEC] bg-white hover:border-[#D5D5D5]'}`}>
+                <div className={`w-[18px] h-[18px] rounded-[5px] border-2 flex-shrink-0 flex items-center justify-center ${selected ? 'border-[#2D6AE0] bg-[#2D6AE0]' : 'border-[#D2D2D2]'}`}>
+                  {selected && <span className="text-white text-[11px] font-bold leading-none">✓</span>}
                 </div>
                 <span className="text-[14.5px] text-[#222] font-medium">{cat.name}</span>
               </div>
@@ -202,12 +225,23 @@ function StepCategory({ industry, market, customCategory, categories, categories
         <input
           value={customCategory}
           onChange={e => onCustomCategory(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && customTrimmed && onUseCustomCategory(customTrimmed)}
-          placeholder="Or type your own category"
-          className={`flex-1 border rounded-[11px] px-[14px] py-3 text-[14.5px] focus:outline-none transition-colors ${customTrimmed && industry === customTrimmed ? 'border-[#2D6AE0]' : 'border-[#E2E2E2] focus:border-[#2D6AE0]'}`}
+          onKeyDown={e => e.key === 'Enter' && addCustom()}
+          placeholder="Or type your own category and add it"
+          className="flex-1 border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[14.5px] focus:border-[#2D6AE0] focus:outline-none transition-colors"
         />
-        <button onClick={() => customTrimmed && onUseCustomCategory(customTrimmed)} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-5 py-3 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8] whitespace-nowrap">Use this</button>
+        <button onClick={addCustom} className="bg-white border border-[#DADADA] text-[#444] rounded-[11px] px-5 py-3 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8] whitespace-nowrap">+ Add</button>
       </div>
+
+      {customSelections.length > 0 && (
+        <div className="flex flex-wrap gap-[9px] items-center mt-4">
+          {customSelections.map(c => (
+            <span key={c.name} className="inline-flex items-center gap-2 bg-[#EEF3FE] border border-[#cdddf8] rounded-full py-[7px] pl-[14px] pr-2 text-[13.5px] text-[#2D6AE0] font-medium">
+              {c.name}
+              <span onClick={() => onToggleCategory(c)} className="w-[18px] h-[18px] rounded-full bg-white text-[#2D6AE0] flex items-center justify-center text-[13px] cursor-pointer hover:bg-[#dbe7fb]">×</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       <span onClick={onNextStep} className="inline-block mt-5 text-[13.5px] text-[#888] cursor-pointer hover:text-[#555] underline underline-offset-2">Continue without a product category →</span>
 
@@ -352,6 +386,107 @@ function StepModels({ models, onToggleModel, onPrevStep, onNextStep }: Pick<Wiza
   );
 }
 
+interface PromptSuggestBoxProps {
+  personas: Persona[];
+  getPersonaPrompts: (id: string) => string[];
+  onAddPrompt: (id: string) => void;
+  onEditPrompt: (id: string, idx: number, val: string) => void;
+}
+
+// Write one prompt yourself, then have it adapted into every other selected
+// persona's voice — reviewed here before anything is written into their
+// prompt lists (nothing is added until "Apply" is clicked).
+function PromptSuggestBox({ personas, getPersonaPrompts, onAddPrompt, onEditPrompt }: PromptSuggestBoxProps) {
+  const [seed, setSeed] = useState('');
+  const [suggesting, setSuggesting] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string> | null>(null);
+  const [included, setIncluded] = useState<Record<string, boolean>>({});
+
+  const suggest = () => {
+    const trimmed = seed.trim();
+    if (!trimmed || personas.length === 0) return;
+    setSuggesting(true);
+    // Mocked — see mockSuggestPromptForPersona. A brief delay so this still
+    // reads as "generating" rather than an instant, obviously-fake swap.
+    setTimeout(() => {
+      const next: Record<string, string> = {};
+      const nextIncluded: Record<string, boolean> = {};
+      for (const p of personas) {
+        next[p.id] = mockSuggestPromptForPersona(trimmed, p);
+        nextIncluded[p.id] = true;
+      }
+      setDrafts(next);
+      setIncluded(nextIncluded);
+      setSuggesting(false);
+    }, 500);
+  };
+
+  const apply = () => {
+    if (!drafts) return;
+    for (const p of personas) {
+      if (!included[p.id]) continue;
+      const idx = getPersonaPrompts(p.id).length;
+      onAddPrompt(p.id);
+      onEditPrompt(p.id, idx, drafts[p.id]);
+    }
+    setDrafts(null);
+    setSeed('');
+  };
+
+  return (
+    <div className="bg-[#EEF3FE] rounded-[18px] px-6 py-5 mb-5">
+      <div className="text-[16px] font-bold text-[#1B3A78] mb-1">Generate prompts from your own</div>
+      <div className="text-[13.5px] text-[#5B6B8C] mb-4 leading-relaxed">Write one prompt the way your buyers phrase it. We'll adapt it for every selected persona and add it to their list.</div>
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <input
+          value={seed}
+          onChange={e => setSeed(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && suggest()}
+          placeholder="e.g. which tool handles client reporting best?"
+          className="flex-1 bg-white border-none rounded-full px-5 py-3 text-sm text-[#333] placeholder:text-[#AAB2C5] focus:outline-none focus:ring-2 focus:ring-[#2D6AE0]/25"
+        />
+        <button
+          onClick={suggest}
+          disabled={!seed.trim() || suggesting}
+          className="bg-[#2D6AE0] text-white border-none rounded-full px-6 py-3 text-[13.5px] font-semibold cursor-pointer hover:bg-[#2560d0] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          {suggesting ? 'Suggesting…' : 'Suggest for all personas'}
+        </button>
+      </div>
+
+      {drafts && (
+        <div className="mt-4 pt-4 border-t border-[#D9E4F8]">
+          <div className="text-[12px] text-[#5B6B8C] font-semibold uppercase tracking-[0.04em] mb-2.5">Review before adding</div>
+          <div className="flex flex-col gap-2">
+            {personas.map(p => (
+              <div key={p.id} className="flex items-start gap-2.5 bg-white rounded-[10px] px-[14px] py-[11px]">
+                <input
+                  type="checkbox"
+                  checked={included[p.id] ?? true}
+                  onChange={e => setIncluded(s => ({ ...s, [p.id]: e.target.checked }))}
+                  className="mt-[3px] flex-shrink-0 accent-[#2D6AE0]"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] font-semibold text-[#666] mb-1">{p.title}</div>
+                  <textarea
+                    value={drafts[p.id]}
+                    onChange={e => setDrafts(s => (s ? { ...s, [p.id]: e.target.value } : s))}
+                    className="w-full border border-[#E6E6E6] rounded-[8px] px-3 py-2 text-[13.5px] leading-[1.5] text-[#333] resize-y min-h-[44px] font-inherit bg-white focus:border-[#2D6AE0] focus:outline-none"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2.5 mt-3">
+            <button onClick={() => setDrafts(null)} className="bg-white border border-[#DADADA] text-[#444] rounded-[9px] px-4 py-2 text-[13px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">Cancel</button>
+            <button onClick={apply} className="bg-[#2D6AE0] text-white border-none rounded-[9px] px-5 py-2 text-[13px] font-semibold cursor-pointer hover:bg-[#2560d0]">Apply to selected</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StepPrompts({ personas, promptsExpanded, promptsLoading, promptsError, getPersonaPrompts, onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'promptsExpanded' | 'promptsLoading' | 'promptsError' | 'getPersonaPrompts' | 'onToggleExpandPrompt' | 'onAddPrompt' | 'onEditPrompt' | 'onRemovePrompt' | 'onPrevStep' | 'onNextStep'>) {
   const selected = personas.filter(p => p.selected);
 
@@ -379,6 +514,8 @@ function StepPrompts({ personas, promptsExpanded, promptsLoading, promptsError, 
     <div className="animate-fadeUp">
       <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">Review and edit the prompts</h2>
       <p className="text-[15.5px] text-[#777] mb-7 max-w-[640px]">We generate one prompt per persona. Edit any of them to better match how your buyers actually ask AI models.</p>
+
+      <PromptSuggestBox personas={selected} onAddPrompt={onAddPrompt} onEditPrompt={onEditPrompt} getPersonaPrompts={getPersonaPrompts} />
 
       <div className="flex flex-col gap-3 mb-2">
         {selected.map(p => {

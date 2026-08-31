@@ -73,11 +73,13 @@ const INITIAL_STATE: AppState = {
   query: '',
   brand: 'Flowstate',
   industry: 'Project Management Software',
+  detectedIndustry: 'Project Management Software',
   competitors: ['Asana', 'Monday.com', 'ClickUp', 'Notion'].map(name => ({ name, matchNames: [name] })),
   buyerContext: '',
   brandSummary: '',
   market: '',
   customCategory: '',
+  selectedCategories: [],
   newCompetitor: '',
   addingPersona: false,
   newPersona: { name: '', role: '', industry: '', goals: '', pains: '', criteria: '' },
@@ -277,11 +279,13 @@ export default function App() {
         query: q,
         brand: detected.brand,
         industry: detected.industry,
+        detectedIndustry: detected.industry,
         competitors: detected.competitors,
         buyerContext: detected.buyerContext,
         brandSummary: detected.brandSummary,
         market: '',
         customCategory: '',
+        selectedCategories: [],
       });
     } catch (e) {
       if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
@@ -297,7 +301,7 @@ export default function App() {
   }, [state.query, accessCode, update, lockOut]);
 
   const goToCategories = useCallback(async () => {
-    update({ step: 2 });
+    update({ step: 2, selectedCategories: [] });
     setCategoriesLoading(true);
     setCategoriesError(null);
     setCategoryBuyerContextOverride(null);
@@ -457,7 +461,22 @@ export default function App() {
 
   useEffect(() => () => closeStream(), [closeStream]);
 
-  const { screen, step, query, brand, industry, competitors, brandSummary, market, customCategory, newCompetitor, addingPersona, newPersona, personas, models, runProgress, runStatuses, personaPrompts, promptsExpanded } = state;
+  const { screen, step, query, brand, industry, competitors, brandSummary, market, customCategory, selectedCategories, newCompetitor, addingPersona, newPersona, personas, models, runProgress, runStatuses, personaPrompts, promptsExpanded } = state;
+
+  // Recomputes the effective industry/buyerContext from every currently
+  // selected category (AI-suggested or custom) — empty selection falls back
+  // to whatever /api/detect originally returned, never a stale prior pick.
+  const applyCategorySelection = useCallback((selected: CategoryOption[]) => {
+    if (selected.length === 0) {
+      setState(s => ({ ...s, industry: s.detectedIndustry, selectedCategories: selected }));
+      setCategoryBuyerContextOverride(null);
+      return;
+    }
+    const joinedIndustry = selected.map(c => c.name).join(' & ');
+    const joinedBuyerContext = selected.map(c => c.buyerContext).filter(Boolean).join(' ');
+    setState(s => ({ ...s, industry: joinedIndustry, selectedCategories: selected }));
+    setCategoryBuyerContextOverride(joinedBuyerContext || null);
+  }, []);
 
   const getPersonaPrompts = useCallback((id: string) => personaPrompts[id] ?? [], [personaPrompts]);
 
@@ -489,21 +508,21 @@ export default function App() {
   }, []);
 
   const wizardProps = {
-    step, brand, industry, competitors, brandSummary, market, customCategory, categories, categoriesLoading, categoriesError, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts,
+    step, brand, industry, competitors, brandSummary, market, customCategory, selectedCategories, categories, categoriesLoading, categoriesError, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts,
     onBrand: (v: string) => update({ brand: v }),
     onIndustry: (v: string) => update({ industry: v }),
     onBrandSummary: (v: string) => update({ brandSummary: v }),
     onMarket: (v: string) => update({ market: v }),
     onCustomCategory: (v: string) => update({ customCategory: v }),
-    onSelectCategory: (category: CategoryOption) => {
-      update({ industry: category.name });
-      setCategoryBuyerContextOverride(category.buyerContext);
+    onToggleCategory: (category: CategoryOption) => {
+      const exists = selectedCategories.some(c => c.name === category.name);
+      const next = exists ? selectedCategories.filter(c => c.name !== category.name) : [...selectedCategories, category];
+      applyCategorySelection(next);
     },
     onUseCustomCategory: (v: string) => {
       const trimmed = v.trim();
-      if (!trimmed) return;
-      update({ industry: trimmed });
-      setCategoryBuyerContextOverride(null);
+      if (!trimmed || selectedCategories.some(c => c.name === trimmed)) return;
+      applyCategorySelection([...selectedCategories, { name: trimmed, buyerContext: '' }]);
     },
     onRemoveCompetitor: (name: string) => update({ competitors: competitors.filter(x => x.name !== name) }),
     onNewCompetitor: (v: string) => update({ newCompetitor: v }),
