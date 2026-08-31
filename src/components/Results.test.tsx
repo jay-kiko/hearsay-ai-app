@@ -133,7 +133,9 @@ describe('Results — competitor diagnosis fail-open behavior', () => {
     render(<Results {...baseProps({ competitorDiagnosis: diagnosis })} />);
     expect(screen.getByText('Enterprise integrations')).toBeInTheDocument();
     expect(screen.getByText('Ease of use')).toBeInTheDocument();
-    expect(screen.getByText('Procurement-framed queries')).toBeInTheDocument();
+    // The top gap also surfaces as the "Biggest Opportunity" summary card,
+    // so it legitimately appears twice.
+    expect(screen.getAllByText('Procurement-framed queries').length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -185,8 +187,10 @@ describe('Results — per-persona opportunity badge', () => {
   it.each(['Defend', 'Grow', 'High', 'Critical Gap'] as const)('renders the "%s" badge for a persona result', opportunity => {
     const result: PersonaResult = { ...RESULT, opportunity };
     render(<Results {...baseProps({ results: { p1: result } })} />);
-    // Persona tab is not the default active tab, but content stays mounted
-    // (hidden, not unmounted) for print — so it's still queryable.
-    expect(screen.getByText(opportunity)).toBeInTheDocument();
+    // Persona/Prompts tabs aren't the default active tab, but content stays
+    // mounted (hidden, not unmounted) for print — still queryable. The badge
+    // legitimately appears twice: once in the compact visibility table
+    // (Persona tab), once on the transcript accordion header (Prompts tab).
+    expect(screen.getAllByText(opportunity).length).toBeGreaterThanOrEqual(2);
   });
 });
