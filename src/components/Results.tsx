@@ -384,6 +384,29 @@ function SummaryStatCard({ label, value, fullValue }: { label: string; value: st
   );
 }
 
+// Competitor names can run long ("BSH Hausgeräte (Bosch & Siemens Home
+// Appliances)") — without a cap, a single card wrapping to several lines
+// stretches the whole Overview row to match it. Truncate to one line,
+// click to see the rest.
+function TopCompetitorCard({ topCompetitor, count }: { topCompetitor: string | null; count: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const truncated = topCompetitor ? truncateToLength(topCompetitor, 30) : null;
+  const isLong = !!truncated && truncated !== topCompetitor;
+  return (
+    <div
+      className={`bg-white border border-[#ECECEC] rounded-[16px] p-[22px] break-inside-avoid ${isLong ? 'cursor-pointer' : ''}`}
+      onClick={isLong ? () => setExpanded(e => !e) : undefined}
+    >
+      <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Top Competitor</div>
+      <div className="text-[21px] font-bold mt-3 leading-snug">
+        {topCompetitor ? (expanded ? topCompetitor : truncated) : '—'}
+        {isLong && <span className="text-[11px] text-[#999] font-semibold ml-1.5 align-middle">{expanded ? '▲' : '▼'}</span>}
+      </div>
+      <div className="text-[13px] text-[#888] mt-1.5">{topCompetitor ? `mentioned in ${count} queries` : 'no competitor surfaced'}</div>
+    </div>
+  );
+}
+
 // competitorDiagnosis can come back with all-empty arrays if the underlying
 // AI call failed for this job — that's "not enough data yet," not an error,
 // so it gets a plain empty state rather than being hidden or crashing.
@@ -636,14 +659,14 @@ export function Results({ brand, industry, personas, results, overview, products
       {/* Overview */}
       <TabPanel active={tab === 'overview'}>
         <h3 className="hidden print:block text-[19px] font-bold tracking-[-0.01em] mb-[14px] break-after-avoid">Overview</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-9">
-          <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] flex items-center gap-4 break-inside-avoid">
-            <VisibilityRing score={overview.visibilityScore} />
-            <div>
-              <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Visibility Score</div>
-              <div className="text-[13.5px] text-[#666] mt-1.5 leading-snug">{visibilityTierMessage(overview.visibilityScore)}</div>
-            </div>
+        <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[26px] mb-4 flex items-center gap-6 break-inside-avoid">
+          <VisibilityRing score={overview.visibilityScore} />
+          <div>
+            <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Your AI Visibility</div>
+            <div className="text-[15px] text-[#555] mt-1.5 leading-snug">{visibilityTierMessage(overview.visibilityScore)}</div>
           </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-9">
           <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] break-inside-avoid">
             <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Mention Rate</div>
             <div className="text-[38px] font-bold tracking-[-0.02em] mt-2.5">{overview.mentioned}<span className="text-[#C8C8C8] text-[26px]"> / {overview.total}</span></div>
@@ -657,11 +680,7 @@ export function Results({ brand, industry, personas, results, overview, products
             </div>
             <div className="text-[13px] text-[#888] mt-2">{positiveCount} positive · {neutralCount} neutral · {negativeCount} negative</div>
           </div>
-          <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] break-inside-avoid">
-            <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Top Competitor</div>
-            <div className="text-[26px] font-bold mt-3">{overview.topCompetitor ?? '—'}</div>
-            <div className="text-[13px] text-[#888] mt-1.5">{overview.topCompetitor ? `mentioned in ${topCompetitorCount} queries` : 'no competitor surfaced'}</div>
-          </div>
+          <TopCompetitorCard topCompetitor={overview.topCompetitor} count={topCompetitorCount} />
           <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] break-inside-avoid">
             <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Most Cited Source</div>
             <div className="text-[20px] font-bold mt-3 truncate">{topSource?.domain ?? '—'}</div>
