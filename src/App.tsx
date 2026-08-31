@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AccessCode, AnalysisResult, AppState, CategoryOption, NewPersona, PersonaResult } from './types';
+import type { AccessCode, AnalysisResult, AppState, CategoryOption, NewPersona, Persona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
-import { ApiError, checkAccessStatus, detectBrand, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis } from './api';
+import { ApiError, checkAccessStatus, detectBrand, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis, suggestSeedPrompt } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -381,6 +381,12 @@ export default function App() {
         buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
         brandSummary: state.brandSummary,
         market: state.market,
+        // Multiple selected category facets take over from the single
+        // top-level industry/buyerContext override — the backend generates
+        // per-category and concatenates. Omitted (undefined) when nothing
+        // or exactly one category is selected, which keeps the old
+        // single-category behavior via the override above.
+        categories: state.selectedCategories.length > 0 ? state.selectedCategories : undefined,
         accessCode,
       });
       update({ personaPrompts: prompts });
@@ -395,7 +401,7 @@ export default function App() {
     } finally {
       setPromptsLoading(false);
     }
-  }, [state.personas, state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
+  }, [state.personas, state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, state.selectedCategories, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   const launchAnalysis = useCallback(async () => {
     const selected = state.personas.filter(p => p.selected);
@@ -507,8 +513,32 @@ export default function App() {
     });
   }, []);
 
+  // Adapts one user-authored prompt into every given persona's voice via
+  // POST /api/prompts/seed — a real billed generation call sharing the same
+  // pre-spend throttle as the others, so a dead code surfaces the same way
+  // (lockOut) rather than a silent failure inside the suggestion preview.
+  const onSuggestPrompts = useCallback(async (seedPrompt: string, targetPersonas: Persona[]) => {
+    try {
+      return await suggestSeedPrompt({
+        brand: state.brand,
+        industry: state.industry,
+        personas: targetPersonas,
+        seedPrompt,
+        buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
+        brandSummary: state.brandSummary,
+        market: state.market,
+        accessCode,
+      });
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+        lockOut(e.message);
+      }
+      throw e;
+    }
+  }, [state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, lockOut]);
+
   const wizardProps = {
-    step, brand, industry, competitors, brandSummary, market, customCategory, selectedCategories, categories, categoriesLoading, categoriesError, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts,
+    step, brand, industry, competitors, brandSummary, market, customCategory, selectedCategories, categories, categoriesLoading, categoriesError, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts, onSuggestPrompts,
     onBrand: (v: string) => update({ brand: v }),
     onIndustry: (v: string) => update({ industry: v }),
     onBrandSummary: (v: string) => update({ brandSummary: v }),
@@ -648,6 +678,10 @@ export default function App() {
           overview={analysisResult.overview}
           products={analysisResult.products}
           sources={analysisResult.sources}
+          scoreBreakdown={analysisResult.scoreBreakdown}
+          competitorDiagnosis={analysisResult.competitorDiagnosis}
+          opportunities={analysisResult.opportunities}
+          radar={analysisResult.radar}
           onGoHome={goHome}
         />
       )}

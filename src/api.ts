@@ -111,6 +111,11 @@ export async function generatePrompts(args: {
   buyerContext?: string;
   brandSummary?: string;
   market?: string;
+  // When multiple category facets are selected, send them all here instead
+  // of relying on the single top-level industry/buyerContext override — the
+  // backend generates prompts per category and concatenates them per
+  // persona. Omit or leave empty for the old single-category behavior.
+  categories?: CategoryOption[];
   accessCode: string;
 }): Promise<Record<string, string[]>> {
   const res = await fetch(`${BASE}/api/prompts`, {
@@ -120,6 +125,36 @@ export async function generatePrompts(args: {
       brand: args.brand,
       industry: args.industry,
       personas: personaPayload(args.personas),
+      buyerContext: args.buyerContext,
+      brandSummary: args.brandSummary,
+      market: args.market,
+      categories: args.categories,
+      accessCode: args.accessCode,
+    }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
+  const body = await res.json();
+  return body.prompts;
+}
+
+export async function suggestSeedPrompt(args: {
+  brand: string;
+  industry: string;
+  personas: Persona[];
+  seedPrompt: string;
+  buyerContext?: string;
+  brandSummary?: string;
+  market?: string;
+  accessCode: string;
+}): Promise<Record<string, string>> {
+  const res = await fetch(`${BASE}/api/prompts/seed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      brand: args.brand,
+      industry: args.industry,
+      personas: personaPayload(args.personas),
+      seedPrompt: args.seedPrompt,
       buyerContext: args.buyerContext,
       brandSummary: args.brandSummary,
       market: args.market,

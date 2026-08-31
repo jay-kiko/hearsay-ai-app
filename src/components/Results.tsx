@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import type { Competitor, Persona, PersonaResult, Product, Overview, Sources, Sentiment } from '../types';
+import type { Competitor, CompetitorDiagnosis, Opportunity, Persona, PersonaOpportunity, PersonaResult, Product, Overview, RadarCategory, ScoreComponent, Sources, SourceIntel, Sentiment } from '../types';
 import { buildReportCsv, downloadCsv } from '../csv';
 
 interface ResultsProps {
@@ -11,6 +11,10 @@ interface ResultsProps {
   overview: Overview;
   products: Product[];
   sources: Sources;
+  scoreBreakdown: ScoreComponent[];
+  competitorDiagnosis: CompetitorDiagnosis;
+  opportunities: Opportunity[];
+  radar: RadarCategory[];
   onGoHome: () => void;
 }
 
@@ -215,9 +219,15 @@ function ProductsMentioned({ products }: { products: Product[] }) {
   );
 }
 
-function RadarChart() {
-  const categories: [string, number][] = [['Technical', 80], ['Business', 74], ['Enterprise', 66], ['Ease of Use', 78], ['Pricing', 58], ['Support', 64]];
-  const n = categories.length;
+// Dimensions are picked per-brand by the backend (e.g. "Ingredient
+// Transparency" for skincare, "Room Comfort" for a hotel) — never assume a
+// fixed axis count or fixed labels here, just render whatever comes back.
+function RadarChart({ data }: { data: RadarCategory[] }) {
+  if (data.length === 0) {
+    return <div className="text-[13px] text-[#999] text-center py-10">Not enough data yet to compute brand strength dimensions.</div>;
+  }
+
+  const n = data.length;
   const cx = 110, cy = 110, r = 80;
 
   const toXY = (angle: number, radius: number) => ({
@@ -226,9 +236,9 @@ function RadarChart() {
   });
 
   const rings = [0.25, 0.5, 0.75, 1];
-  const angles = categories.map((_, i) => (i * 2 * Math.PI) / n);
+  const angles = data.map((_, i) => (i * 2 * Math.PI) / n);
 
-  const dataPoints = categories.map((cat, i) => toXY(angles[i], (cat[1] / 100) * r));
+  const dataPoints = data.map((d, i) => toXY(angles[i], (Math.max(0, Math.min(100, d.score)) / 100) * r));
   const polyPoints = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
 
   return (
@@ -248,11 +258,11 @@ function RadarChart() {
       {dataPoints.map((p, i) => (
         <circle key={i} cx={p.x} cy={p.y} r="4" fill="#2D6AE0" />
       ))}
-      {categories.map((cat, i) => {
+      {data.map((d, i) => {
         const pos = toXY(angles[i], r + 18);
         return (
-          <text key={cat[0]} x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="#888" fontFamily="sans-serif">
-            {cat[0]}
+          <text key={d.name} x={pos.x} y={pos.y} textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="#888" fontFamily="sans-serif">
+            {d.name}
           </text>
         );
       })}
@@ -260,238 +270,162 @@ function RadarChart() {
   );
 }
 
-// ── Mock data for sections the backend doesn't compute yet ─────────────────
-// Everything below this line is placeholder content clearly labeled in the
-// UI as illustrative, standing in for real backend work (attribute
-// extraction, source-influence classification, opportunity synthesis) that
-// hasn't been built. Swap for real data once those endpoints exist — see the
-// three backend specs already drafted for this (categories/prompts-suggest
-// were built; competitor attributes, enriched sources, and opportunities are
-// still pending).
+// Deterministic read on competitive position from vis/mentioned alone (see
+// pipeline._classify_opportunity) — "High" here means "high-opportunity",
+// mentioned but weak, not "high-performing". Not mentioned at all is always
+// Critical Gap regardless of how other personas are doing.
+const PERSONA_OPPORTUNITY_STYLE: Record<PersonaOpportunity, { color: string; bg: string }> = {
+  Defend: { color: '#1E9E6A', bg: '#E8F6EF' },
+  Grow: { color: ACCENT, bg: '#EEF3FE' },
+  High: { color: '#B8862F', bg: '#FBF2E2' },
+  'Critical Gap': { color: '#C2543A', bg: '#FBEDE8' },
+};
 
-const MOCK_COMPETITOR_WINS = ['Enterprise integrations', 'Broader review-site presence', 'Longer market history', 'Wider distribution footprint'];
-const MOCK_BRAND_WINS = ['Ease of use', 'Pricing clarity', 'More specific fit for your category', 'Faster, more direct AI answers'];
-const MOCK_VISIBILITY_GAPS = ['Head-to-head comparison questions', 'Procurement/buying-criteria framed queries', 'Budget-conscious queries'];
+function PersonaOpportunityBadge({ opportunity }: { opportunity: PersonaOpportunity }) {
+  const style = PERSONA_OPPORTUNITY_STYLE[opportunity];
+  return <span className="text-[11.5px] font-semibold rounded-full px-[11px] py-1 whitespace-nowrap" style={{ color: style.color, background: style.bg }}>{opportunity}</span>;
+}
 
-function CompetitorAttributes({ topCompetitor }: { topCompetitor: string | null }) {
+function ScoreBreakdownSection({ items }: { items: ScoreComponent[] }) {
+  return (
+    <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 mb-4 break-inside-avoid">
+      <div className="text-[15px] font-semibold mb-1">Score breakdown</div>
+      <div className="text-[13px] text-[#999] mb-[18px]">What's driving your overall Visibility Score</div>
+      <div className="flex flex-col gap-4">
+        {items.map(item => (
+          <div key={item.name}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[13.5px] font-semibold text-[#1b1b1b]">{item.name}</span>
+              <span className="text-[13.5px] font-bold" style={{ color: visibilityTierColor(item.score) }}>{item.score}/100</span>
+            </div>
+            <div className="h-2 bg-[#F2F2F2] rounded-full overflow-hidden mb-1.5">
+              <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, item.score))}%`, background: visibilityTierColor(item.score) }} />
+            </div>
+            <div className="text-[12.5px] text-[#888] leading-relaxed">{item.note}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DiagnosisColumn({ title, items, color, bg }: { title: string; items: string[]; color: string; bg: string }) {
+  return (
+    <div className="rounded-[13px] px-5 py-4" style={{ background: bg }}>
+      <div className="text-[13.5px] font-bold mb-2.5" style={{ color }}>{title}</div>
+      {items.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          {items.map(w => <div key={w} className="text-[13.5px] text-[#555]">{w}</div>)}
+        </div>
+      ) : (
+        <div className="text-[13px] text-[#999]">No signal yet</div>
+      )}
+    </div>
+  );
+}
+
+// competitorDiagnosis can come back with all-empty arrays if the underlying
+// AI call failed for this job — that's "not enough data yet," not an error,
+// so it gets a plain empty state rather than being hidden or crashing.
+function CompetitorDiagnosisCard({ diagnosis, topCompetitor }: { diagnosis: CompetitorDiagnosis; topCompetitor: string | null }) {
+  const empty = diagnosis.rivalWins.length === 0 && diagnosis.brandWins.length === 0 && diagnosis.gaps.length === 0;
   return (
     <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 mb-4 break-inside-avoid">
       <div className="text-[15px] font-semibold mb-1">Why competitors outperform you</div>
-      <div className="text-[13px] text-[#999] mb-[18px]">Attributes AI models attach to each brand when recommending options. Illustrative — not yet computed from live data.</div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-[#FBEDE8] rounded-[13px] px-5 py-4">
-          <div className="text-[13.5px] font-bold text-[#C2543A] mb-2.5">{topCompetitor ?? 'Competitors'} win{topCompetitor ? 's' : ''} on</div>
-          <div className="flex flex-col gap-1.5">
-            {MOCK_COMPETITOR_WINS.map(w => <div key={w} className="text-[13.5px] text-[#555]">{w}</div>)}
-          </div>
+      <div className="text-[13px] text-[#999] mb-[18px]">Attributes AI models attach to each brand when recommending options.</div>
+      {empty ? (
+        <div className="text-[13.5px] text-[#999] py-4">Not enough data yet for this report.</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <DiagnosisColumn title={`${topCompetitor ?? 'Competitors'} win${topCompetitor ? 's' : ''} on`} items={diagnosis.rivalWins} color="#C2543A" bg="#FBEDE8" />
+          <DiagnosisColumn title="Your brand wins on" items={diagnosis.brandWins} color="#1E9E6A" bg="#E8F6EF" />
+          <DiagnosisColumn title="Your biggest visibility gaps" items={diagnosis.gaps} color="#666" bg="#F4F4F4" />
         </div>
-        <div className="bg-[#E8F6EF] rounded-[13px] px-5 py-4">
-          <div className="text-[13.5px] font-bold text-[#1E9E6A] mb-2.5">Your brand wins on</div>
-          <div className="flex flex-col gap-1.5">
-            {MOCK_BRAND_WINS.map(w => <div key={w} className="text-[13.5px] text-[#555]">{w}</div>)}
-          </div>
-        </div>
-        <div className="bg-[#F4F4F4] rounded-[13px] px-5 py-4">
-          <div className="text-[13.5px] font-bold text-[#666] mb-2.5">Your biggest visibility gaps</div>
-          <div className="flex flex-col gap-1.5">
-            {MOCK_VISIBILITY_GAPS.map(w => <div key={w} className="text-[13.5px] text-[#555]">{w}</div>)}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-const MOCK_KEYWORDS_POOL = [
-  ['best options', 'top picks', 'comparison'],
-  ['pricing', 'free alternatives', 'cost comparison'],
-  ['reviews', 'ratings', 'user experience'],
-  ['alternatives', 'switching from', 'vs competitors'],
-];
-const MOCK_RESONATES_POOL = ['Enterprise buyers', 'SMB owners', 'Budget-conscious buyers', 'Researchers/consultants', 'Early adopters'];
-const MOCK_VISIBILITY_TAGS = [
-  { label: 'Visible', color: '#1E9E6A', bg: '#E8F6EF' },
-  { label: 'Weak visibility', color: '#B8862F', bg: '#FBF2E2' },
-  { label: 'Not visible', color: '#C2543A', bg: '#FBEDE8' },
-];
+const SOURCE_VISIBILITY_STYLE: Record<SourceIntel['visibility'], { color: string; bg: string }> = {
+  Visible: { color: '#1E9E6A', bg: '#E8F6EF' },
+  'Weak visibility': { color: '#B8862F', bg: '#FBF2E2' },
+  'Not visible': { color: '#C2543A', bg: '#FBEDE8' },
+};
 
-// Influence tier is derived from the real mention count on each source —
-// only the label wording differs by source kind. Keywords/resonance/your-
-// visibility columns have no backing data yet, so they cycle a fixed mock
-// pool rather than claim a real per-source classification.
-function influenceTierFor(count: number, hasCommunity: boolean): string {
-  const noun = hasCommunity ? 'community' : 'AI';
-  if (count >= 4) return `High ${noun} influence`;
-  if (count >= 2) return `Medium ${noun} influence`;
-  return `Low ${noun} influence`;
+function SourceDetailColumn({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div>
+      <div className="text-[11px] text-[#999] font-semibold uppercase tracking-[0.04em] mb-1.5">{label}</div>
+      {items.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {items.map(it => <span key={it} className="text-[12.5px] text-[#555] bg-[#F4F6F9] rounded-full px-2.5 py-1">{it}</span>)}
+        </div>
+      ) : (
+        <div className="text-[12.5px] text-[#AAA]">No signal</div>
+      )}
+    </div>
+  );
 }
 
-interface SourceRow {
-  name: string;
-  types: string[];
-  count: number;
-  hasCommunity: boolean;
-}
+// One expandable card per cited domain (capped to the 15 most-cited by the
+// backend). Individual domains can come back with empty keywords/personas/
+// competitors and visibility "Not visible" if enrichment didn't have enough
+// signal for that one domain specifically — that's "no signal," not broken
+// data, so it renders the same way as any other domain, just with empty
+// detail columns.
+function SourceIntelList({ sourceIntel }: { sourceIntel: SourceIntel[] }) {
+  const [open, setOpen] = useState<string | null>(null);
 
-// The same domain can legitimately appear in more than one of the backend's
-// three source lists (e.g. both cited as a review site and tracked as a
-// publisher) — merging by name avoids that showing up as duplicate rows for
-// the same source.
-function buildSourceRows(sources: Sources): SourceRow[] {
-  const byName = new Map<string, SourceRow>();
-  const upsert = (name: string, type: string, count: number, isCommunity: boolean) => {
-    const existing = byName.get(name);
-    if (existing) {
-      if (!existing.types.includes(type)) existing.types.push(type);
-      existing.count += count;
-      existing.hasCommunity = existing.hasCommunity || isCommunity;
-    } else {
-      byName.set(name, { name, types: [type], count, hasCommunity: isCommunity });
-    }
-  };
-  sources.citations.forEach(c => upsert(c.domain, 'Review', c.count, false));
-  sources.publishers.forEach(p => upsert(p.name, p.type, p.mentions, false));
-  sources.communities.forEach(cm => upsert(cm.name, cm.platform, cm.mentions, true));
-  return [...byName.values()].sort((a, b) => b.count - a.count);
-}
-
-function EnrichedSourcesTable({ sources }: { sources: Sources }) {
-  const rows = buildSourceRows(sources);
-
-  if (rows.length === 0) {
-    return <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] text-[13.5px] text-[#999]">No sources found for this report.</div>;
+  if (sourceIntel.length === 0) {
+    return <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] text-[13.5px] text-[#999]">Not enough data yet for source-level detail.</div>;
   }
 
   return (
-    <div className="bg-white border border-[#ECECEC] rounded-[16px] overflow-hidden break-inside-avoid">
-      <div className="overflow-x-auto">
-        <div className="min-w-[760px]">
-          <div className="grid grid-cols-[1.3fr_1.1fr_1.4fr_1.2fr_1fr] gap-3 px-6 py-3 text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase border-b border-[#F0F0F0]">
-            <span>Source</span><span>Influence</span><span>Keywords mentioned</span><span>Resonates with</span><span>Your visibility</span>
-          </div>
-          {rows.map((row, i) => {
-            const tag = MOCK_VISIBILITY_TAGS[i % MOCK_VISIBILITY_TAGS.length];
-            const keywords = MOCK_KEYWORDS_POOL[i % MOCK_KEYWORDS_POOL.length];
-            const resonates = [MOCK_RESONATES_POOL[i % MOCK_RESONATES_POOL.length], MOCK_RESONATES_POOL[(i + 1) % MOCK_RESONATES_POOL.length]];
-            return (
-              <div key={row.name} className="grid grid-cols-[1.3fr_1.1fr_1.4fr_1.2fr_1fr] gap-3 px-6 py-3.5 border-b border-[#F6F6F6] items-start">
-                <div>
-                  <div className="text-[13.5px] font-semibold text-[#1b1b1b]">{row.name}</div>
-                  <div className="text-[11px] text-[#999] uppercase tracking-[0.03em] mt-0.5">{row.types.join(' + ')}</div>
-                </div>
-                <div className="text-[12.5px] text-[#666] pt-0.5">{influenceTierFor(row.count, row.hasCommunity)}</div>
-                <div className="text-[12.5px] text-[#666] pt-0.5">{keywords.join(', ')}</div>
-                <div className="text-[12.5px] text-[#666] pt-0.5">{resonates.join(', ')}</div>
-                <div className="pt-0.5">
-                  <span className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap" style={{ color: tag.color, background: tag.bg }}>{tag.label}</span>
-                  <span className="text-[11px] text-[#AAA] ml-1.5">{row.count}×</span>
-                </div>
+    <div className="flex flex-col gap-2.5">
+      {sourceIntel.map(s => {
+        const isOpen = open === s.domain;
+        const vis = SOURCE_VISIBILITY_STYLE[s.visibility];
+        return (
+          <div key={s.domain} className="bg-white border border-[#ECECEC] rounded-[14px] overflow-hidden break-inside-avoid">
+            <div onClick={() => setOpen(isOpen ? null : s.domain)} className="px-5 py-4 flex flex-wrap items-center gap-x-3 gap-y-2 cursor-pointer hover:bg-[#FAFBFD]">
+              <div className="flex-1 min-w-[160px]">
+                <a href={s.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[14.5px] font-semibold text-[#1b1b1b] hover:text-[#2D6AE0]">{s.domain}</a>
+                <div className="text-[12px] text-[#999] mt-0.5">{s.category} · {s.influence}</div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-      <div className="px-6 py-2.5 text-[11.5px] text-[#AAA] bg-[#FAFAFA] border-t border-[#F0F0F0]">Source names and mention counts are real. Keywords, resonance, and per-source visibility are illustrative — pending backend support.</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap" style={{ color: vis.color, background: vis.bg }}>{s.visibility}</span>
+                <span className="text-xs text-[#999] bg-[#F4F4F4] rounded-full px-2.5 py-[3px]">{s.cited}×</span>
+                <span className="text-[#999] text-sm print:hidden">{isOpen ? '▲' : '▼'}</span>
+              </div>
+            </div>
+            <div className={`px-5 pb-5 border-t border-[#F2F2F2] ${isOpen ? '' : 'hidden'} print:block`}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                <SourceDetailColumn label="Keywords" items={s.keywords} />
+                <SourceDetailColumn label="Resonates with" items={s.personas} />
+                <SourceDetailColumn label="Discusses competitors" items={s.competitors} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-interface Opportunity {
-  tag: 'Critical gap' | 'Source gap' | 'Competitive';
-  title: string;
-  description: string;
-  doThis: string;
-  impact: 'High' | 'Medium' | 'Low';
-  effort: 'High' | 'Medium' | 'Low';
-}
-
-const OPPORTUNITY_TAG_STYLE: Record<Opportunity['tag'], { color: string; bg: string }> = {
-  'Critical gap': { color: '#C2543A', bg: '#FBEDE8' },
-  'Source gap': { color: '#B8862F', bg: '#FBF2E2' },
-  'Competitive': { color: '#2D6AE0', bg: '#EEF3FE' },
-};
-
-// Titles/descriptions below use this report's real numbers wherever they're
-// available (mention counts, top competitor, top-cited domain, sentiment).
-// The "do this" recommendations themselves are generic placeholder copy —
-// pending the actual synthesis/recommendation pass on the backend.
-function buildOpportunities(overview: Overview, products: Product[], sources: Sources, brand: string): Opportunity[] {
-  const items: Opportunity[] = [];
-  const topCitation = sources.citations[0];
-
-  if (overview.total > 0 && overview.mentionRate < 0.5) {
-    items.push({
-      tag: 'Critical gap',
-      title: 'Most persona queries never surface you',
-      description: `${brand} was mentioned in only ${overview.mentioned} of ${overview.total} persona queries.`,
-      doThis: 'Publish content that directly answers the kinds of questions these personas asked, and pursue placement on the sources AI cites most in this category.',
-      impact: 'High',
-      effort: 'Medium',
-    });
-  }
-
-  if (overview.topCompetitor) {
-    const competitorProduct = products.find(p => p.name === overview.topCompetitor);
-    const brandProduct = products.find(p => p.isBrand);
-    items.push({
-      tag: 'Competitive',
-      title: `${overview.topCompetitor} outperforms you in AI answers`,
-      description: `Mentioned in ${competitorProduct?.count ?? 0} of ${overview.total} queries vs. your ${brandProduct?.count ?? 0}.`,
-      doThis: `Identify what AI associates with ${overview.topCompetitor} in this category and close the gap in your own content and reviews.`,
-      impact: 'High',
-      effort: 'Medium',
-    });
-  }
-
-  if (topCitation) {
-    items.push({
-      tag: 'Source gap',
-      title: `${topCitation.domain} shapes recommendations in your category`,
-      description: `Cited ${topCitation.count}× across the AI responses in this report.`,
-      doThis: `Make sure ${brand} has an accurate, complete presence on ${topCitation.domain}.`,
-      impact: 'Medium',
-      effort: 'Low',
-    });
-  }
-
-  if (overview.avgSentiment !== 'Positive' && overview.mentioned > 0) {
-    items.push({
-      tag: 'Critical gap',
-      title: "Sentiment toward your brand isn't consistently positive",
-      description: `Average sentiment across responses that mentioned you is ${overview.avgSentiment}.`,
-      doThis: 'Address the specific concerns or gaps showing up in the AI-generated answers about your brand.',
-      impact: 'Medium',
-      effort: 'Medium',
-    });
-  }
-
-  if (items.length === 0) {
-    items.push({
-      tag: 'Competitive',
-      title: 'Strong baseline visibility',
-      description: `${brand} already shows up consistently across the personas tested.`,
-      doThis: 'Maintain current content and monitor for shifts as competitors publish new material.',
-      impact: 'Low',
-      effort: 'Low',
-    });
-  }
-
-  return items;
-}
-
 function OpportunityCard({ item }: { item: Opportunity }) {
-  const tagStyle = OPPORTUNITY_TAG_STYLE[item.tag];
   return (
     <div className="bg-white border border-[#ECECEC] rounded-[15px] px-6 py-5 break-inside-avoid">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-[11px] font-bold uppercase tracking-[0.04em] rounded-full px-[10px] py-1 whitespace-nowrap" style={{ color: tagStyle.color, background: tagStyle.bg }}>{item.tag}</span>
+          {/* type is a free-form label from the model, not an enum — one
+              consistent badge style regardless of the exact string. */}
+          <span className="text-[11px] font-bold uppercase tracking-[0.04em] rounded-full px-[10px] py-1 whitespace-nowrap text-[#2D6AE0] bg-[#EEF3FE]">{item.type}</span>
           <span className="text-[15.5px] font-bold text-[#1b1b1b]">{item.title}</span>
         </div>
         <div className="text-[12px] text-[#999] whitespace-nowrap">Impact <strong className="text-[#555]">{item.impact}</strong> · Effort <strong className="text-[#555]">{item.effort}</strong></div>
       </div>
-      <div className="text-[13.5px] text-[#666] mt-2.5 leading-relaxed">{item.description}</div>
-      <div className="text-[13px] text-[#444] mt-3 pt-3 border-t border-[#F2F2F2] leading-relaxed"><span className="text-[11px] font-bold uppercase tracking-[0.04em] text-[#999] mr-1.5">Do this</span>{item.doThis}</div>
+      <div className="text-[13.5px] text-[#666] mt-2.5 leading-relaxed">{item.detail}</div>
+      <div className="text-[13px] text-[#444] mt-3 pt-3 border-t border-[#F2F2F2] leading-relaxed"><span className="text-[11px] font-bold uppercase tracking-[0.04em] text-[#999] mr-1.5">Do this</span>{item.action}</div>
     </div>
   );
 }
@@ -567,7 +501,7 @@ function TabPanel({ active, children }: { active: boolean; children: React.React
   return <div className={active ? '' : 'hidden print:block'}>{children}</div>;
 }
 
-export function Results({ brand, industry, personas, results, overview, products, sources, onGoHome }: ResultsProps) {
+export function Results({ brand, industry, personas, results, overview, products, sources, scoreBreakdown, competitorDiagnosis, opportunities, radar, onGoHome }: ResultsProps) {
   const selected = personas.filter(p => p.selected);
   const [openResult, setOpenResult] = useState<string | null>(selected[0]?.id ?? null);
   const [tab, setTab] = useState<TabId>('overview');
@@ -576,7 +510,6 @@ export function Results({ brand, industry, personas, results, overview, products
   const negativeCount = selected.filter(p => results[p.id]?.sentiment === 'Negative').length;
   const topCompetitorCount = overview.topCompetitor ? products.find(p => p.name === overview.topCompetitor)?.count ?? 0 : 0;
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const opportunities = buildOpportunities(overview, products, sources, brand);
 
   return (
     <div className="max-w-[1080px] mx-auto px-4 sm:px-7 py-10 pb-[110px] animate-fadeUp">
@@ -662,6 +595,8 @@ export function Results({ brand, industry, personas, results, overview, products
             <ProductsMentioned products={products} />
           </div>
         </div>
+
+        <ScoreBreakdownSection items={scoreBreakdown} />
       </TabPanel>
 
       {/* Persona */}
@@ -695,6 +630,7 @@ export function Results({ brand, industry, personas, results, overview, products
                     {r.sentiment === 'Positive' && <span className="text-[11.5px] font-semibold text-[#1E9E6A] bg-[#E8F6EF] rounded-full px-[11px] py-1">Positive</span>}
                     {r.sentiment === 'Neutral' && <span className="text-[11.5px] font-semibold text-[#8A8A8A] bg-[#F0F0F0] rounded-full px-[11px] py-1">Neutral</span>}
                     {r.sentiment === 'Negative' && <span className="text-[11.5px] font-semibold text-[#D2603F] bg-[#FBEDE8] rounded-full px-[11px] py-1">Negative</span>}
+                    <PersonaOpportunityBadge opportunity={r.opportunity} />
                     <span className="text-[#999] text-sm print:hidden">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </div>
@@ -739,7 +675,7 @@ export function Results({ brand, industry, personas, results, overview, products
       {/* Competitors */}
       <TabPanel active={tab === 'competitors'}>
         <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-[14px] break-after-avoid">Competitors</h3>
-        <CompetitorAttributes topCompetitor={overview.topCompetitor} />
+        <CompetitorDiagnosisCard diagnosis={competitorDiagnosis} topCompetitor={overview.topCompetitor} />
         <div className="grid grid-cols-1 sm:grid-cols-[1.15fr_1fr] gap-4">
           <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 break-inside-avoid">
             <div className="text-[15px] font-semibold mb-1">Competitor comparison</div>
@@ -748,8 +684,8 @@ export function Results({ brand, industry, personas, results, overview, products
           </div>
           <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 break-inside-avoid">
             <div className="text-[15px] font-semibold mb-1">Brand strength by category</div>
-            <div className="text-[13px] text-[#999] mb-2">Illustrative — not yet computed from live data</div>
-            <RadarChart />
+            <div className="text-[13px] text-[#999] mb-2">Dimensions picked for this brand's category</div>
+            <RadarChart data={radar} />
           </div>
         </div>
       </TabPanel>
@@ -762,17 +698,71 @@ export function Results({ brand, industry, personas, results, overview, products
 
       {/* Sources */}
       <TabPanel active={tab === 'sources'}>
-        <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-[14px] break-after-avoid">Sources shaping AI recommendations in your category</h3>
-        <EnrichedSourcesTable sources={sources} />
+        <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-[14px] break-after-avoid">Sources referenced by AI responses</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr_1fr] gap-4 mb-10">
+          <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] break-inside-avoid">
+            <div className="text-[14.5px] font-semibold mb-[14px]">Citation sources</div>
+            <div className="flex flex-col gap-[13px]">
+              {sources.citations.length === 0 && <div className="text-[13px] text-[#999]">No citations found.</div>}
+              {sources.citations.map(c => (
+                <div key={c.domain}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[13px] font-semibold text-[#2D6AE0]">{c.domain}</span>
+                    <span className="text-[11.5px] text-[#AAA] font-semibold flex-shrink-0">{c.count}×</span>
+                  </div>
+                  <div className="text-[12.5px] text-[#888] mt-0.5 leading-snug">{c.title}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] break-inside-avoid">
+            <div className="text-[14.5px] font-semibold mb-[14px]">Publisher list</div>
+            <div className="flex flex-col gap-3">
+              {sources.publishers.length === 0 && <div className="text-[13px] text-[#999]">No publishers found.</div>}
+              {sources.publishers.map(p => (
+                <div key={p.name} className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[13.5px] font-semibold text-[#1b1b1b]">{p.name}</div>
+                    <div className="text-xs text-[#999]">{p.type}</div>
+                  </div>
+                  <span className="text-[11.5px] font-semibold text-[#666] bg-[#F4F4F4] rounded-full px-2.5 py-[3px] flex-shrink-0">{p.mentions}×</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] break-inside-avoid">
+            <div className="text-[14.5px] font-semibold mb-[14px]">Community list</div>
+            <div className="flex flex-col gap-3">
+              {sources.communities.length === 0 && <div className="text-[13px] text-[#999]">No community threads found.</div>}
+              {sources.communities.map(cm => (
+                <div key={cm.name} className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[13.5px] font-semibold text-[#1b1b1b]">{cm.name}</div>
+                    <div className="text-xs text-[#999]">{cm.platform}</div>
+                  </div>
+                  <span className="text-[11.5px] font-semibold text-[#666] bg-[#F4F4F4] rounded-full px-2.5 py-[3px] flex-shrink-0">{cm.mentions}×</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-1 break-after-avoid">Source Intelligence</h3>
+        <div className="text-[13px] text-[#999] mb-[18px]">What each cited domain says, the language it uses, and which buyers it resonates with. Expand a row for detail.</div>
+        <SourceIntelList sourceIntel={sources.sourceIntel} />
       </TabPanel>
 
       {/* Opportunities */}
       <TabPanel active={tab === 'opportunities'}>
         <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-1 break-after-avoid">Where you can gain the most</h3>
-        <div className="text-[13px] text-[#999] mb-[18px]">Ranked by potential impact on your AI Visibility Score. Grounded in this report's real numbers; recommendations are illustrative pending backend support.</div>
-        <div className="flex flex-col gap-3">
-          {opportunities.map((item, i) => <OpportunityCard key={i} item={item} />)}
-        </div>
+        <div className="text-[13px] text-[#999] mb-[18px]">Ranked by potential impact on your AI Visibility Score.</div>
+        {opportunities.length === 0 ? (
+          <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] text-[13.5px] text-[#999]">Not enough data yet to generate opportunities for this report.</div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {opportunities.map((item, i) => <OpportunityCard key={i} item={item} />)}
+          </div>
+        )}
       </TabPanel>
     </div>
   );

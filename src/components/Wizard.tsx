@@ -1,17 +1,6 @@
 import { useState } from 'react';
 import type { Persona, AIModel, CategoryOption, Competitor, NewPersona } from '../types';
 
-// Placeholder for a not-yet-built backend endpoint (POST /api/prompts/suggest)
-// that would adapt a user-authored seed prompt into each persona's own voice
-// via a real AI call. Until that exists, this does a plain client-side
-// reframe — good enough to demo the preview/bulk-apply UI, not a real
-// suggestion engine.
-function mockSuggestPromptForPersona(seed: string, persona: Persona): string {
-  const trimmed = seed.trim().replace(/[?.!]+$/, '');
-  const voice = (persona.role || persona.title).trim().replace(/[.!]+$/, '');
-  return `As ${/^[aeiou]/i.test(voice) ? 'an' : 'a'} ${voice.toLowerCase()}, ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}?`;
-}
-
 interface WizardProps {
   step: number;
   brand: string;
@@ -58,6 +47,7 @@ interface WizardProps {
   onAddPrompt: (id: string) => void;
   onEditPrompt: (id: string, idx: number, val: string) => void;
   onRemovePrompt: (id: string, idx: number) => void;
+  onSuggestPrompts: (seedPrompt: string, personas: Persona[]) => Promise<Record<string, string>>;
   onNextStep: () => void;
   onPrevStep: () => void;
   onGoHome: () => void;
@@ -391,34 +381,36 @@ interface PromptSuggestBoxProps {
   getPersonaPrompts: (id: string) => string[];
   onAddPrompt: (id: string) => void;
   onEditPrompt: (id: string, idx: number, val: string) => void;
+  onSuggestPrompts: (seedPrompt: string, personas: Persona[]) => Promise<Record<string, string>>;
 }
 
 // Write one prompt yourself, then have it adapted into every other selected
-// persona's voice — reviewed here before anything is written into their
-// prompt lists (nothing is added until "Apply" is clicked).
-function PromptSuggestBox({ personas, getPersonaPrompts, onAddPrompt, onEditPrompt }: PromptSuggestBoxProps) {
+// persona's voice via POST /api/prompts/seed — reviewed here before anything
+// is written into their prompt lists (nothing is added until "Apply" is
+// clicked).
+function PromptSuggestBox({ personas, getPersonaPrompts, onAddPrompt, onEditPrompt, onSuggestPrompts }: PromptSuggestBoxProps) {
   const [seed, setSeed] = useState('');
   const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string> | null>(null);
   const [included, setIncluded] = useState<Record<string, boolean>>({});
 
-  const suggest = () => {
+  const suggest = async () => {
     const trimmed = seed.trim();
     if (!trimmed || personas.length === 0) return;
     setSuggesting(true);
-    // Mocked — see mockSuggestPromptForPersona. A brief delay so this still
-    // reads as "generating" rather than an instant, obviously-fake swap.
-    setTimeout(() => {
-      const next: Record<string, string> = {};
+    setSuggestError(null);
+    try {
+      const next = await onSuggestPrompts(trimmed, personas);
       const nextIncluded: Record<string, boolean> = {};
-      for (const p of personas) {
-        next[p.id] = mockSuggestPromptForPersona(trimmed, p);
-        nextIncluded[p.id] = true;
-      }
+      for (const p of personas) nextIncluded[p.id] = true;
       setDrafts(next);
       setIncluded(nextIncluded);
+    } catch (e) {
+      setSuggestError(e instanceof Error ? e.message : 'Could not generate suggestions. Try again.');
+    } finally {
       setSuggesting(false);
-    }, 500);
+    }
   };
 
   const apply = () => {
@@ -453,6 +445,7 @@ function PromptSuggestBox({ personas, getPersonaPrompts, onAddPrompt, onEditProm
           {suggesting ? 'Suggesting…' : 'Suggest for all personas'}
         </button>
       </div>
+      {suggestError && <div className="text-[12.5px] text-[#C2543A] mt-2.5">{suggestError}</div>}
 
       {drafts && (
         <div className="mt-4 pt-4 border-t border-[#D9E4F8]">
@@ -487,7 +480,7 @@ function PromptSuggestBox({ personas, getPersonaPrompts, onAddPrompt, onEditProm
   );
 }
 
-function StepPrompts({ personas, promptsExpanded, promptsLoading, promptsError, getPersonaPrompts, onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'promptsExpanded' | 'promptsLoading' | 'promptsError' | 'getPersonaPrompts' | 'onToggleExpandPrompt' | 'onAddPrompt' | 'onEditPrompt' | 'onRemovePrompt' | 'onPrevStep' | 'onNextStep'>) {
+function StepPrompts({ personas, promptsExpanded, promptsLoading, promptsError, getPersonaPrompts, onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt, onSuggestPrompts, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'promptsExpanded' | 'promptsLoading' | 'promptsError' | 'getPersonaPrompts' | 'onToggleExpandPrompt' | 'onAddPrompt' | 'onEditPrompt' | 'onRemovePrompt' | 'onSuggestPrompts' | 'onPrevStep' | 'onNextStep'>) {
   const selected = personas.filter(p => p.selected);
 
   if (promptsLoading) {
@@ -515,7 +508,7 @@ function StepPrompts({ personas, promptsExpanded, promptsLoading, promptsError, 
       <h2 className="text-[30px] tracking-[-0.02em] font-bold mb-2">Review and edit the prompts</h2>
       <p className="text-[15.5px] text-[#777] mb-7 max-w-[640px]">We generate one prompt per persona. Edit any of them to better match how your buyers actually ask AI models.</p>
 
-      <PromptSuggestBox personas={selected} onAddPrompt={onAddPrompt} onEditPrompt={onEditPrompt} getPersonaPrompts={getPersonaPrompts} />
+      <PromptSuggestBox personas={selected} onAddPrompt={onAddPrompt} onEditPrompt={onEditPrompt} getPersonaPrompts={getPersonaPrompts} onSuggestPrompts={onSuggestPrompts} />
 
       <div className="flex flex-col gap-3 mb-2">
         {selected.map(p => {

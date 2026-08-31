@@ -44,6 +44,8 @@ export interface PersonaExchange {
   parts: ResponsePart[];
 }
 
+export type PersonaOpportunity = 'Defend' | 'Grow' | 'High' | 'Critical Gap';
+
 export interface PersonaResult {
   prompt: string;
   mentioned: boolean;
@@ -53,6 +55,7 @@ export interface PersonaResult {
   quote: string;
   parts: ResponsePart[];
   exchanges: PersonaExchange[];
+  opportunity: PersonaOpportunity;
 }
 
 export interface HistoryEntry {
@@ -101,6 +104,18 @@ export interface Community {
   mentions: number;
 }
 
+export interface SourceIntel {
+  domain: string;
+  url: string;
+  category: string;
+  influence: string;
+  cited: number;
+  keywords: string[];
+  personas: string[];
+  competitors: string[];
+  visibility: 'Visible' | 'Weak visibility' | 'Not visible';
+}
+
 export interface AccessCode {
   code: string;
   usesTotal: number;
@@ -136,6 +151,36 @@ export interface Sources {
   citations: Citation[];
   publishers: Publisher[];
   communities: Community[];
+  sourceIntel: SourceIntel[];
+}
+
+export interface ScoreComponent {
+  name: string;
+  score: number;
+  note: string;
+}
+
+export interface CompetitorDiagnosis {
+  rivalWins: string[];
+  brandWins: string[];
+  gaps: string[];
+}
+
+export interface Opportunity {
+  title: string;
+  // Free-form label from the model ("Critical gap", "Source gap",
+  // "Competitive", "Keyword gap", "Community", ...) — not an exhaustive
+  // enum, render whatever string comes back.
+  type: string;
+  impact: 'High' | 'Medium' | 'Low';
+  effort: 'High' | 'Medium' | 'Low';
+  detail: string;
+  action: string;
+}
+
+export interface RadarCategory {
+  name: string;
+  score: number;
 }
 
 export interface AnalysisResult {
@@ -143,6 +188,10 @@ export interface AnalysisResult {
   products: Product[];
   sources: Sources;
   sitelist: SitelistEntry[];
+  scoreBreakdown: ScoreComponent[];
+  competitorDiagnosis: CompetitorDiagnosis;
+  opportunities: Opportunity[];
+  radar: RadarCategory[];
 }
 
 export interface DetectResult {
