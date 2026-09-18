@@ -70,15 +70,6 @@ export interface HistoryEntry {
   status: string;
 }
 
-export interface NewPersona {
-  name: string;
-  role: string;
-  industry: string;
-  goals: string;
-  pains: string;
-  criteria: string;
-}
-
 export interface Product {
   name: string;
   count: number;
@@ -239,7 +230,6 @@ export interface AppState {
   selectedCategories: CategoryOption[];
   newCompetitor: string;
   addingPersona: boolean;
-  newPersona: NewPersona;
   personas: Persona[];
   models: AIModel[];
   runProgress: number;

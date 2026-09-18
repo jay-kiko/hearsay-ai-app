@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import type { Persona, AIModel, CategoryOption, Competitor, NewPersona } from '../types';
+import type { Persona, AIModel, CategoryOption, Competitor } from '../types';
+
+const PERSONA_DESC_MIN = 10;
+const PERSONA_DESC_MAX = 500;
 
 interface WizardProps {
   step: number;
@@ -15,7 +18,6 @@ interface WizardProps {
   categoriesError: string | null;
   newCompetitor: string;
   addingPersona: boolean;
-  newPersona: NewPersona;
   personas: Persona[];
   models: AIModel[];
   personaPrompts: Record<string, string[]>;
@@ -40,8 +42,7 @@ interface WizardProps {
   onExpandPersona: (id: string) => void;
   onOpenAddPersona: () => void;
   onCloseAddPersona: () => void;
-  onNewPersonaField: (field: keyof NewPersona, val: string) => void;
-  onSaveCustomPersona: () => void;
+  onGenerateCustomPersona: (description: string) => Promise<void>;
   onToggleModel: (id: string) => void;
   onToggleExpandPrompt: (id: string) => void;
   onAddPrompt: (id: string) => void;
@@ -249,7 +250,57 @@ function StepCategory({ industry, market, customCategory, categories, selectedCa
   );
 }
 
-function StepPersonas({ personas, addingPersona, newPersona, personasLoading, personasError, personasProgress, onTogglePersona, onExpandPersona, onOpenAddPersona, onCloseAddPersona, onNewPersonaField, onSaveCustomPersona, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'addingPersona' | 'newPersona' | 'personasLoading' | 'personasError' | 'personasProgress' | 'onTogglePersona' | 'onExpandPersona' | 'onOpenAddPersona' | 'onCloseAddPersona' | 'onNewPersonaField' | 'onSaveCustomPersona' | 'onPrevStep' | 'onNextStep'>) {
+// One free-text description, expanded into a full persona (title, role,
+// pains, criteria) server-side via POST /api/personas/expand — the result is
+// appended straight to the persona list, no separate review step.
+function AddCustomPersonaBox({ onClose, onGenerate }: { onClose: () => void; onGenerate: (description: string) => Promise<void> }) {
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const length = description.trim().length;
+  const valid = length >= PERSONA_DESC_MIN && length <= PERSONA_DESC_MAX;
+
+  const submit = async () => {
+    if (!valid || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onGenerate(description.trim());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not generate this persona. Try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-[#cdddf8] rounded-[15px] p-[22px] mt-[14px]">
+      <div className="text-[15px] font-semibold mb-1">New custom persona</div>
+      <label className="block text-[13px] text-[#888] mb-3">Describe this persona</label>
+      <textarea
+        value={description}
+        onChange={e => setDescription(e.target.value)}
+        placeholder="e.g. Budget-conscious IT director evaluating vendors on reliability and total cost of ownership"
+        rows={3}
+        disabled={submitting}
+        className="w-full border border-[#E2E2E2] rounded-[10px] px-[13px] py-[11px] text-sm leading-[1.5] resize-y focus:border-[#2D6AE0] focus:outline-none disabled:opacity-60"
+      />
+      <div className={`text-[11.5px] mt-[7px] ${length > 0 && !valid ? 'text-[#C2543A]' : 'text-[#AAA]'}`}>
+        {length}/{PERSONA_DESC_MAX}{length < PERSONA_DESC_MIN ? ` · at least ${PERSONA_DESC_MIN} characters` : ''}
+      </div>
+      {error && <div className="text-[12.5px] text-[#C2543A] mt-2">{error}</div>}
+      <div className="flex justify-end gap-2.5 mt-4">
+        <button onClick={onClose} disabled={submitting} className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8] disabled:opacity-50">Cancel</button>
+        <button onClick={submit} disabled={!valid || submitting} className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-5 py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#2560d0] disabled:opacity-50 disabled:cursor-not-allowed">
+          {submitting ? 'Generating…' : 'Generate persona'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StepPersonas({ personas, addingPersona, personasLoading, personasError, personasProgress, onTogglePersona, onExpandPersona, onOpenAddPersona, onCloseAddPersona, onGenerateCustomPersona, onPrevStep, onNextStep }: Pick<WizardProps, 'personas' | 'addingPersona' | 'personasLoading' | 'personasError' | 'personasProgress' | 'onTogglePersona' | 'onExpandPersona' | 'onOpenAddPersona' | 'onCloseAddPersona' | 'onGenerateCustomPersona' | 'onPrevStep' | 'onNextStep'>) {
   const selectedCount = personas.filter(p => p.selected).length;
 
   if (personasLoading) {
@@ -311,18 +362,7 @@ function StepPersonas({ personas, addingPersona, newPersona, personasLoading, pe
       </div>
 
       {addingPersona ? (
-        <div className="bg-white border border-[#cdddf8] rounded-[15px] p-[22px] mt-[14px]">
-          <div className="text-[15px] font-semibold mb-4">New custom persona</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(['name', 'role', 'industry', 'goals', 'pains', 'criteria'] as (keyof NewPersona)[]).map(field => (
-              <input key={field} value={newPersona[field]} onChange={e => onNewPersonaField(field, e.target.value)} placeholder={field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} className="border border-[#E2E2E2] rounded-[10px] px-[13px] py-[11px] text-sm focus:border-[#2D6AE0] focus:outline-none" />
-            ))}
-          </div>
-          <div className="flex justify-end gap-2.5 mt-4">
-            <button onClick={onCloseAddPersona} className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-[18px] py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">Cancel</button>
-            <button onClick={onSaveCustomPersona} className="bg-[#2D6AE0] text-white border-none rounded-[10px] px-5 py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#2560d0]">Save persona</button>
-          </div>
-        </div>
+        <AddCustomPersonaBox onClose={onCloseAddPersona} onGenerate={onGenerateCustomPersona} />
       ) : (
         <div onClick={onOpenAddPersona} className="mt-[14px] border-[1.5px] border-dashed border-[#D2D2D2] rounded-[15px] p-[18px] text-center text-sm font-semibold text-[#2D6AE0] cursor-pointer hover:border-[#2D6AE0] hover:bg-[#EEF3FE] transition-colors">
           + Add Custom Persona

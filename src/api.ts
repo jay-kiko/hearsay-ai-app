@@ -104,6 +104,33 @@ export async function generatePersonas(args: {
   return body.personas;
 }
 
+export async function expandPersona(args: {
+  description: string;
+  industry: string;
+  competitors: Competitor[];
+  buyerContext?: string;
+  brandSummary?: string;
+  market?: string;
+  accessCode: string;
+}): Promise<GeneratedPersona> {
+  const res = await fetch(`${BASE}/api/personas/expand`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      description: args.description,
+      industry: args.industry,
+      competitors: args.competitors,
+      buyerContext: args.buyerContext,
+      brandSummary: args.brandSummary,
+      market: args.market,
+      accessCode: args.accessCode,
+    }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res));
+  const body = await res.json();
+  return body.persona;
+}
+
 export async function generatePrompts(args: {
   brand: string;
   industry: string;

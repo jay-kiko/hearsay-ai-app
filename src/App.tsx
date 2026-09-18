@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AccessCode, AnalysisResult, AppState, CategoryOption, NewPersona, Persona, PersonaResult } from './types';
+import type { AccessCode, AnalysisResult, AppState, CategoryOption, Persona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
-import { ApiError, checkAccessStatus, detectBrand, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis, suggestSeedPrompt } from './api';
+import { ApiError, checkAccessStatus, detectBrand, expandPersona, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis, suggestSeedPrompt } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
 import { Wizard } from './components/Wizard';
@@ -82,7 +82,6 @@ const INITIAL_STATE: AppState = {
   selectedCategories: [],
   newCompetitor: '',
   addingPersona: false,
-  newPersona: { name: '', role: '', industry: '', goals: '', pains: '', criteria: '' },
   personas: INITIAL_PERSONAS,
   models: INITIAL_MODELS,
   runProgress: 0,
@@ -467,7 +466,7 @@ export default function App() {
 
   useEffect(() => () => closeStream(), [closeStream]);
 
-  const { screen, step, query, brand, industry, competitors, brandSummary, market, customCategory, selectedCategories, newCompetitor, addingPersona, newPersona, personas, models, runProgress, runStatuses, personaPrompts, promptsExpanded } = state;
+  const { screen, step, query, brand, industry, competitors, brandSummary, market, customCategory, selectedCategories, newCompetitor, addingPersona, personas, models, runProgress, runStatuses, personaPrompts, promptsExpanded } = state;
 
   // Recomputes the effective industry/buyerContext from every currently
   // selected category (AI-suggested or custom) — empty selection falls back
@@ -537,8 +536,34 @@ export default function App() {
     }
   }, [state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, lockOut]);
 
+  // Expands a one-line description into a full persona via POST
+  // /api/personas/expand — a real billed generation call sharing the same
+  // pre-spend throttle as the others, so lockOut applies the same way. The
+  // result is appended straight into `personas`, identical in shape to an
+  // AI-generated one (no isCustom flag), so it flows through prompt/analysis
+  // generation exactly like the rest.
+  const onGenerateCustomPersona = useCallback(async (description: string) => {
+    try {
+      const persona = await expandPersona({
+        description,
+        industry: state.industry,
+        competitors: state.competitors,
+        buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
+        brandSummary: state.brandSummary,
+        market: state.market,
+        accessCode,
+      });
+      update({ personas: [...personas, { ...persona, selected: true, expanded: false }], addingPersona: false });
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+        lockOut(e.message);
+      }
+      throw e;
+    }
+  }, [personas, state.industry, state.competitors, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
+
   const wizardProps = {
-    step, brand, industry, competitors, brandSummary, market, customCategory, selectedCategories, categories, categoriesLoading, categoriesError, newCompetitor, addingPersona, newPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts, onSuggestPrompts,
+    step, brand, industry, competitors, brandSummary, market, customCategory, selectedCategories, categories, categoriesLoading, categoriesError, newCompetitor, addingPersona, personas, models, personaPrompts, promptsExpanded, personasLoading, personasError, personasProgress, promptsLoading, promptsError, getPersonaPrompts, onSuggestPrompts,
     onBrand: (v: string) => update({ brand: v }),
     onIndustry: (v: string) => update({ industry: v }),
     onBrandSummary: (v: string) => update({ brandSummary: v }),
@@ -567,24 +592,8 @@ export default function App() {
     onTogglePersona: (id: string) => update({ personas: personas.map(p => p.id === id ? { ...p, selected: !p.selected } : p) }),
     onExpandPersona: (id: string) => update({ personas: personas.map(p => p.id === id ? { ...p, expanded: !p.expanded } : p) }),
     onOpenAddPersona: () => update({ addingPersona: true }),
-    onCloseAddPersona: () => update({ addingPersona: false, newPersona: { name: '', role: '', industry: '', goals: '', pains: '', criteria: '' } }),
-    onNewPersonaField: (field: keyof NewPersona, val: string) => update({ newPersona: { ...newPersona, [field]: val } }),
-    onSaveCustomPersona: () => {
-      if (!newPersona.name.trim()) return;
-      const initials = newPersona.name.split(' ').slice(0, 2).map((w: string) => w[0]?.toUpperCase() ?? '').join('');
-      const custom = {
-        id: `custom-${Date.now()}`,
-        title: newPersona.name,
-        initials,
-        desc: newPersona.goals || newPersona.role,
-        role: newPersona.role,
-        pains: newPersona.pains,
-        criteria: newPersona.criteria,
-        selected: true,
-        expanded: false,
-      };
-      update({ personas: [...personas, custom], addingPersona: false, newPersona: { name: '', role: '', industry: '', goals: '', pains: '', criteria: '' } });
-    },
+    onCloseAddPersona: () => update({ addingPersona: false }),
+    onGenerateCustomPersona,
     onToggleModel: (id: string) => update({ models: models.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m) }),
     onToggleExpandPrompt, onAddPrompt, onEditPrompt, onRemovePrompt,
     onNextStep: () => {
