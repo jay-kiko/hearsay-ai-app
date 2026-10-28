@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generatePrompts, startAnalysis, suggestSeedPrompt } from './api';
+import { formatErrorDetail, generatePrompts, startAnalysis, suggestSeedPrompt } from './api';
 import { matchNamesFor } from './brandNames';
 import type { Persona } from './types';
 
@@ -151,5 +151,21 @@ describe('matchNamesFor', () => {
 
   it('drops the old brand\'s aliases after a rename to an unrelated brand', () => {
     expect(matchNamesFor('Royal Caribbean', 'Disney Cruise', ['Disney Cruise', 'DCL'])).toEqual(['Royal Caribbean']);
+  });
+});
+
+describe('formatErrorDetail', () => {
+  it('turns a 422 validation list into a readable line instead of [object Object]', () => {
+    const detail = [{ loc: ['body', 'brandSummary'], msg: 'String should have at most 2000 characters' }];
+    expect(formatErrorDetail(detail)).toBe('Brand summary: String should have at most 2000 characters');
+  });
+
+  it('passes plain string details through', () => {
+    expect(formatErrorDetail('Access code not found')).toBe('Access code not found');
+  });
+
+  it('names nested fields by their first named part', () => {
+    const detail = [{ loc: ['body', 'prompts', 'p1', 0], msg: 'String should have at most 500 characters' }];
+    expect(formatErrorDetail(detail)).toBe('Prompts: String should have at most 500 characters');
   });
 });

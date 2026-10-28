@@ -10,10 +10,41 @@ export class ApiError extends Error {
   }
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  brand: 'Brand',
+  brandMatchNames: 'Brand names',
+  brandSummary: 'Brand summary',
+  buyerContext: 'Buyer context',
+  categories: 'Categories',
+  competitors: 'Competitors',
+  description: 'Persona description',
+  industry: 'Industry',
+  market: 'Market',
+  personas: 'Personas',
+  prompts: 'Prompts',
+  query: 'Search',
+  seedPrompt: 'Prompt',
+};
+
+type ValidationIssue = { loc?: (string | number)[]; msg?: string };
+
+// A 422 from the backend carries a list of validation issues, not a string;
+// rendering it directly showed "[object Object]". Exported for tests.
+export function formatErrorDetail(detail: unknown): string | null {
+  if (typeof detail === 'string') return detail;
+  if (!Array.isArray(detail) || detail.length === 0) return null;
+  const lines = (detail as ValidationIssue[]).slice(0, 3).map(issue => {
+    const field = (issue.loc ?? []).find(part => typeof part === 'string' && part !== 'body') as string | undefined;
+    const label = field ? FIELD_LABELS[field] ?? field : 'Input';
+    return `${label}: ${issue.msg ?? 'invalid value'}`;
+  });
+  return lines.join('; ');
+}
+
 async function parseErrorDetail(res: Response): Promise<string> {
   try {
     const body = await res.json();
-    return body.detail || res.statusText;
+    return formatErrorDetail(body.detail) || res.statusText;
   } catch {
     return res.statusText;
   }
