@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LIMITS } from '../limits';
+import { GLOBAL, LIMITS_SAFE_AREA, OTHER_COUNTRIES, SUPPORTED_COUNTRIES } from '../market';
 import type { Persona, AIModel, CategoryOption, Competitor } from '../types';
 
 const PERSONA_DESC_MIN = 10;
@@ -12,6 +13,8 @@ interface WizardProps {
   competitors: Competitor[];
   brandSummary: string;
   market: string;
+  marketCountry: string;
+  marketArea: string;
   customCategory: string;
   categories: CategoryOption[];
   selectedCategories: CategoryOption[];
@@ -32,7 +35,8 @@ interface WizardProps {
   onBrand: (v: string) => void;
   onIndustry: (v: string) => void;
   onBrandSummary: (v: string) => void;
-  onMarket: (v: string) => void;
+  onMarketCountry: (v: string) => void;
+  onMarketArea: (v: string) => void;
   onCustomCategory: (v: string) => void;
   onToggleCategory: (category: CategoryOption) => void;
   onUseCustomCategory: (v: string) => void;
@@ -160,7 +164,7 @@ function StepBrand({ brand, industry, competitors, brandSummary, newCompetitor, 
   );
 }
 
-function StepCategory({ industry, market, customCategory, categories, selectedCategories, categoriesLoading, categoriesError, onMarket, onCustomCategory, onToggleCategory, onUseCustomCategory, onPrevStep, onNextStep }: Pick<WizardProps, 'industry' | 'market' | 'customCategory' | 'categories' | 'selectedCategories' | 'categoriesLoading' | 'categoriesError' | 'onMarket' | 'onCustomCategory' | 'onToggleCategory' | 'onUseCustomCategory' | 'onPrevStep' | 'onNextStep'>) {
+function StepCategory({ industry, marketCountry, marketArea, customCategory, categories, selectedCategories, categoriesLoading, categoriesError, onMarketCountry, onMarketArea, onCustomCategory, onToggleCategory, onUseCustomCategory, onPrevStep, onNextStep }: Pick<WizardProps, 'industry' | 'marketCountry' | 'marketArea' | 'customCategory' | 'categories' | 'selectedCategories' | 'categoriesLoading' | 'categoriesError' | 'onMarketCountry' | 'onMarketArea' | 'onCustomCategory' | 'onToggleCategory' | 'onUseCustomCategory' | 'onPrevStep' | 'onNextStep'>) {
   if (categoriesLoading) {
     return (
       <div className="animate-fadeUp text-center py-20 max-w-[380px] mx-auto">
@@ -244,8 +248,40 @@ function StepCategory({ industry, market, customCategory, categories, selectedCa
 
       <div className="mt-8 pt-7 border-t border-[#ECECEC]">
         <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">Geographic focus <span className="text-[#B0B0B0] normal-case tracking-normal font-medium">· optional</span></label>
-        <input value={market} maxLength={LIMITS.name} onChange={e => onMarket(e.target.value)} placeholder="City, state, country, or ZIP" className="w-full max-w-[380px] border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[14.5px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
-        <p className="text-[12.5px] text-[#999] mt-[7px] leading-relaxed">Grounds personas, prompts, and the final analysis in a specific market.</p>
+        <div className="flex gap-2.5 flex-wrap">
+          <select
+            aria-label="Country"
+            value={marketCountry}
+            onChange={e => onMarketCountry(e.target.value)}
+            className="w-full sm:w-[220px] border border-[#E2E2E2] rounded-[11px] px-[12px] py-3 text-[14.5px] text-[#222] bg-white focus:border-[#2D6AE0] focus:outline-none transition-colors"
+          >
+            <optgroup label="Fully supported">
+              {SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </optgroup>
+            <option value={GLOBAL}>Global / no specific market</option>
+            <optgroup label="Other countries">
+              {OTHER_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </optgroup>
+          </select>
+          <input
+            aria-label="City or area"
+            value={marketArea}
+            maxLength={LIMITS_SAFE_AREA}
+            onChange={e => onMarketArea(e.target.value)}
+            placeholder="City or area (optional), e.g. Makati"
+            className="flex-1 min-w-[200px] max-w-[300px] border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[14.5px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors"
+          />
+        </div>
+        <p className="text-[12.5px] text-[#999] mt-[7px] leading-relaxed">
+          Grounds personas, prompts, and the final analysis in a specific market.
+          {(SUPPORTED_COUNTRIES as readonly string[]).includes(marketCountry)
+            ? marketCountry === 'Singapore'
+              ? ' Sources are searched as from Singapore, and the sitelist includes programmatic inventory.'
+              : ` Sources are searched as from ${marketCountry}.`
+            : marketCountry
+              ? ' Sources aren\'t localised for this country yet.'
+              : ' Without a market, answers and sources lean global.'}
+        </p>
       </div>
 
       <div className="flex justify-end gap-3 mt-7">

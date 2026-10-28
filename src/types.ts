@@ -254,7 +254,10 @@ export interface AppState {
   competitors: Competitor[];
   buyerContext: string;
   brandSummary: string;
+  // What's sent to the backend: composeMarket(marketCountry, marketArea).
   market: string;
+  marketCountry: string;
+  marketArea: string;
   customCategory: string;
   selectedCategories: CategoryOption[];
   newCompetitor: string;

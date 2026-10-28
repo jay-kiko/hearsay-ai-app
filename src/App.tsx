@@ -3,6 +3,7 @@ import type { AccessCode, AnalysisResult, AppState, CategoryOption, Persona, Per
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
 import { matchNamesFor } from './brandNames';
 import { promptsForRun } from './limits';
+import { DEFAULT_COUNTRY, composeMarket } from './market';
 import { ApiError, checkAccessStatus, detectBrand, expandPersona, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis, suggestSeedPrompt } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
@@ -81,7 +82,9 @@ const INITIAL_STATE: AppState = {
   competitors: ['Asana', 'Monday.com', 'ClickUp', 'Notion'].map(name => ({ name, matchNames: [name] })),
   buyerContext: '',
   brandSummary: '',
-  market: '',
+  market: DEFAULT_COUNTRY,
+  marketCountry: DEFAULT_COUNTRY,
+  marketArea: '',
   customCategory: '',
   selectedCategories: [],
   newCompetitor: '',
@@ -288,7 +291,9 @@ export default function App() {
         competitors: detected.competitors,
         buyerContext: detected.buyerContext,
         brandSummary: detected.brandSummary,
-        market: '',
+        // A new brand keeps the chosen country but not the previous area.
+        market: state.marketCountry,
+        marketArea: '',
         customCategory: '',
         selectedCategories: [],
       });
@@ -303,7 +308,7 @@ export default function App() {
       detectTimerRef.current = null;
       setDetecting(false);
     }
-  }, [state.query, accessCode, update, lockOut]);
+  }, [state.query, state.marketCountry, accessCode, update, lockOut]);
 
   const goToCategories = useCallback(async () => {
     update({ step: 2, selectedCategories: [] });
@@ -578,7 +583,10 @@ export default function App() {
     onBrand: (v: string) => update({ brand: v }),
     onIndustry: (v: string) => update({ industry: v }),
     onBrandSummary: (v: string) => update({ brandSummary: v }),
-    onMarket: (v: string) => update({ market: v }),
+    marketCountry: state.marketCountry,
+    marketArea: state.marketArea,
+    onMarketCountry: (v: string) => update({ marketCountry: v, market: composeMarket(v, state.marketArea) }),
+    onMarketArea: (v: string) => update({ marketArea: v, market: composeMarket(state.marketCountry, v) }),
     onCustomCategory: (v: string) => update({ customCategory: v }),
     onToggleCategory: (category: CategoryOption) => {
       const exists = selectedCategories.some(c => c.name === category.name);
