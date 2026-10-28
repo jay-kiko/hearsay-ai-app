@@ -19,8 +19,8 @@ export function Activation({ brand, sitelist, onBack }: ActivationProps) {
       <div className="flex items-start justify-between flex-wrap gap-4 mb-2.5">
         <div>
           <span onClick={onBack} className="text-[13px] text-[#999] font-semibold cursor-pointer hover:text-[#555]">← Back to results</span>
-          <h2 className="text-[32px] tracking-[-0.02em] font-bold mt-2 mb-0">AI Influence Sitelist</h2>
-          <div className="text-[14.5px] text-[#888] mt-[3px] max-w-[640px] leading-snug">Publishers and digital ecosystems shaping how AI models describe {brand} — ranked by influence. Market availability, CPM, and buyability aren't wired to real ad inventory yet.</div>
+          <h2 className="text-[32px] tracking-[-0.02em] font-bold mt-2 mb-0">Publisher Sitelist</h2>
+          <div className="text-[14.5px] text-[#888] mt-[3px] max-w-[640px] leading-snug">Independent publishers that {brand}'s buyers' own questions turn up, ranked by reach: the share of those questions that surfaced each one. In Singapore, CPM, formats and buyability come from real programmatic inventory; elsewhere they're not available yet.</div>
         </div>
         <div className="flex gap-2.5 flex-wrap">
           <button className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">Export CSV</button>
@@ -32,10 +32,10 @@ export function Activation({ brand, sitelist, onBack }: ActivationProps) {
         <div className="overflow-x-auto">
           <div className="min-w-[720px]">
             <div className="grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-[14px] border-b border-[#F0F0F0] text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase">
-              <span>Publisher</span><span>AI Influence</span><span>Inventory</span><span>Market availability</span><span>Est. CPM</span><span>Status</span>
+              <span>Publisher</span><span>Reach</span><span>Inventory</span><span>Market availability</span><span>Est. CPM</span><span>Status</span>
             </div>
             {sitelist.length === 0 && (
-              <div className="px-[22px] py-10 text-center text-[13.5px] text-[#999]">No influential publishers surfaced for this analysis.</div>
+              <div className="px-[22px] py-10 text-center text-[13.5px] text-[#999]">No independent publishers came back for this analysis.</div>
             )}
             {sitelist.map((p, i) => (
               <div key={p.name} className={`grid grid-cols-[1.5fr_0.9fr_1.6fr_1.1fr_0.9fr_1fr] px-[22px] py-4 text-sm text-[#444] items-center ${i < sitelist.length - 1 ? 'border-b border-[#F4F4F4]' : ''}`}>
