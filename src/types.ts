@@ -106,7 +106,10 @@ export interface SourceIntel {
   keywords: string[];
   personas: string[];
   competitors: string[];
-  visibility: 'Visible' | 'Weak visibility' | 'Not visible';
+  // "Couldn't verify": the page blocks automated reading, so presence is unknown.
+  visibility: 'Visible' | 'Weak visibility' | 'Not visible' | "Couldn't verify";
+  // `url` plus a text fragment that scrolls to the first brand mention.
+  link?: string;
   // Brand evidence on the linked page (what `visibility` is derived from).
   mentions?: number;
   // The passage naming the brand on that page; empty when mentions is 0.

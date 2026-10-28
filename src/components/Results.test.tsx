@@ -234,3 +234,39 @@ describe('Results — failures are counted in their own units', () => {
     expect(screen.getByText(/1 persona failed to run and 2 questions couldn't be answered/)).toBeInTheDocument();
   });
 });
+
+describe('Results — source links and unreadable pages', () => {
+  const base = {
+    domain: 'blog.example',
+    url: 'https://blog.example/post',
+    category: 'PUBLISHER',
+    influence: 'High reach · 2 of 3 buyer questions',
+    cited: 1,
+    keywords: [],
+    personas: [],
+    competitors: [],
+  };
+
+  it('links to the mention when the backend sends a deep link', () => {
+    const s = { ...base, visibility: 'Visible' as const, mentions: 2, link: 'https://blog.example/post#:~:text=Acme' };
+    render(<Results {...baseProps({ sources: { ...SOURCES, sourceIntel: [s] } })} />);
+    const domainLinks = screen.getAllByText('blog.example').map(el => el.closest('a')).filter(Boolean);
+    expect(domainLinks[0]).toHaveAttribute('href', s.link);
+    expect(screen.getByText('Open page at the mention →')).toHaveAttribute('href', s.link);
+  });
+
+  it('says a blocked page couldn\'t be checked instead of calling it a gap', () => {
+    const s = { ...base, visibility: "Couldn't verify" as const, gap: null };
+    render(<Results {...baseProps({ sources: { ...SOURCES, sourceIntel: [s] } })} />);
+    expect(screen.getAllByText("Couldn't verify").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/blocks automated reading/)).toBeInTheDocument();
+    // Only the column label, never the gap badge.
+    expect(screen.getAllByText('Rivals named here')).toHaveLength(1);
+  });
+
+  it('still renders a visibility value it does not know', () => {
+    const s = { ...base, visibility: 'Something new' as unknown as 'Visible' };
+    render(<Results {...baseProps({ sources: { ...SOURCES, sourceIntel: [s] } })} />);
+    expect(screen.getAllByText('Something new').length).toBeGreaterThanOrEqual(1);
+  });
+});

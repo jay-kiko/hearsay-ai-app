@@ -434,7 +434,10 @@ const SOURCE_VISIBILITY_STYLE: Record<SourceIntel['visibility'], { color: string
   Visible: { color: '#1E9E6A', bg: '#E8F6EF' },
   'Weak visibility': { color: '#B8862F', bg: '#FBF2E2' },
   'Not visible': { color: '#C2543A', bg: '#FBEDE8' },
+  "Couldn't verify": { color: '#777', bg: '#F1F1F1' },
 };
+// A visibility value this build doesn't know yet still renders, neutrally.
+const SOURCE_VISIBILITY_FALLBACK = { color: '#777', bg: '#F1F1F1' };
 
 function SourceDetailColumn({ label, items }: { label: string; items: string[] }) {
   return (
@@ -479,7 +482,10 @@ function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: 
       )}
       {sourceIntel.map(s => {
         const isOpen = open === s.domain;
-        const vis = SOURCE_VISIBILITY_STYLE[s.visibility];
+        const vis = SOURCE_VISIBILITY_STYLE[s.visibility] ?? SOURCE_VISIBILITY_FALLBACK;
+        const unverified = s.visibility === "Couldn't verify";
+        // Deep link: scrolls the page to where it names the brand.
+        const href = s.link || s.url;
         const gap = s.gap ? GAP_LABEL[s.gap] : null;
         const rivals = s.competitorMentions && Object.keys(s.competitorMentions).length
           ? Object.entries(s.competitorMentions).map(([name, n]) => `${name} (${n})`)
@@ -488,7 +494,7 @@ function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: 
           <div key={s.domain} className="bg-white border border-[#ECECEC] rounded-[14px] overflow-hidden break-inside-avoid">
             <div onClick={() => setOpen(isOpen ? null : s.domain)} className="px-5 py-4 flex flex-wrap items-center gap-x-3 gap-y-2 cursor-pointer hover:bg-[#FAFBFD]">
               <div className="flex-1 min-w-[160px]">
-                <a href={s.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[14.5px] font-semibold text-[#1b1b1b] hover:text-[#2D6AE0]">{s.domain}</a>
+                <a href={href} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[14.5px] font-semibold text-[#1b1b1b] hover:text-[#2D6AE0]">{s.domain}</a>
                 <div className="text-[12px] text-[#999] mt-0.5">{s.category} · {s.influence}</div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -500,9 +506,13 @@ function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: 
             </div>
             <div className={`px-5 pb-5 border-t border-[#F2F2F2] ${isOpen ? '' : 'hidden'} print:block`}>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-4 pb-4 mb-1 border-b border-[#F2F2F2] text-[13px]">
-                <span className="text-[#666]">Your brand <strong style={{ color: vis.color }}>{s.visibility}</strong> on the linked page</span>
+                {unverified ? (
+                  <span className="text-[#666]">This site blocks automated reading, so we <strong>couldn't check</strong> whether it names you. Open it to see.</span>
+                ) : (
+                  <span className="text-[#666]">Your brand <strong style={{ color: vis.color }}>{s.visibility}</strong> on the linked page</span>
+                )}
                 <span className="text-[#666]"><strong className="text-[#1b1b1b]">{plural(s.cited, 'page')}</strong> found by buyers' searches</span>
-                <a href={s.url} target="_blank" rel="noreferrer" className="text-[#2D6AE0] font-semibold hover:opacity-80">Open page →</a>
+                <a href={href} target="_blank" rel="noreferrer" className="text-[#2D6AE0] font-semibold hover:opacity-80">{s.link && s.link !== s.url ? 'Open page at the mention →' : 'Open page →'}</a>
               </div>
               {s.evidence && (
                 <blockquote className="text-[13px] text-[#555] italic border-l-2 border-[#E2E6EC] pl-3 my-3 leading-relaxed">"{s.evidence}"</blockquote>
