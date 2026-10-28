@@ -20,7 +20,8 @@ async function parseErrorDetail(res: Response): Promise<string> {
 }
 
 function personaPayload(personas: Persona[]) {
-  return personas.map(p => ({ id: p.id, title: p.title, role: p.role, pains: p.pains, criteria: p.criteria }));
+  // desc carries the persona's "what they're deciding" line into prompt generation.
+  return personas.map(p => ({ id: p.id, title: p.title, desc: p.desc, role: p.role, pains: p.pains, criteria: p.criteria }));
 }
 
 export async function checkAccessStatus(code: string): Promise<AccessStatus> {
@@ -133,6 +134,10 @@ export async function expandPersona(args: {
 
 export async function generatePrompts(args: {
   brand: string;
+  // Sent so the backend can drop any generated prompt that names the brand
+  // (under any alias) or a competitor.
+  brandMatchNames?: string[];
+  competitors?: Competitor[];
   industry: string;
   personas: Persona[];
   buyerContext?: string;
@@ -150,6 +155,8 @@ export async function generatePrompts(args: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       brand: args.brand,
+      brandMatchNames: args.brandMatchNames,
+      competitors: args.competitors,
       industry: args.industry,
       personas: personaPayload(args.personas),
       buyerContext: args.buyerContext,
@@ -166,6 +173,8 @@ export async function generatePrompts(args: {
 
 export async function suggestSeedPrompt(args: {
   brand: string;
+  brandMatchNames?: string[];
+  competitors?: Competitor[];
   industry: string;
   personas: Persona[];
   seedPrompt: string;
@@ -179,6 +188,8 @@ export async function suggestSeedPrompt(args: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       brand: args.brand,
+      brandMatchNames: args.brandMatchNames,
+      competitors: args.competitors,
       industry: args.industry,
       personas: personaPayload(args.personas),
       seedPrompt: args.seedPrompt,
@@ -195,6 +206,9 @@ export async function suggestSeedPrompt(args: {
 
 export async function startAnalysis(args: {
   brand: string;
+  // Without these the backend only recognises the bare brand name in answers
+  // and on source pages, missing product-line and short-form mentions.
+  brandMatchNames?: string[];
   industry: string;
   competitors: Competitor[];
   personas: Persona[];
@@ -209,6 +223,7 @@ export async function startAnalysis(args: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       brand: args.brand,
+      brandMatchNames: args.brandMatchNames,
       industry: args.industry,
       competitors: args.competitors,
       personas: personaPayload(args.personas),

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AccessCode, AnalysisResult, AppState, CategoryOption, Persona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
+import { matchNamesFor } from './brandNames';
 import { ApiError, checkAccessStatus, detectBrand, expandPersona, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis, suggestSeedPrompt } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
@@ -72,6 +73,8 @@ const INITIAL_STATE: AppState = {
   step: 1,
   query: '',
   brand: 'Flowstate',
+  brandMatchNames: [],
+  detectedBrand: '',
   industry: 'Project Management Software',
   detectedIndustry: 'Project Management Software',
   competitors: ['Asana', 'Monday.com', 'ClickUp', 'Notion'].map(name => ({ name, matchNames: [name] })),
@@ -277,6 +280,8 @@ export default function App() {
         step: 1,
         query: q,
         brand: detected.brand,
+        brandMatchNames: detected.brandMatchNames ?? [],
+        detectedBrand: detected.brand,
         industry: detected.industry,
         detectedIndustry: detected.industry,
         competitors: detected.competitors,
@@ -375,6 +380,8 @@ export default function App() {
       const selected = state.personas.filter(p => p.selected);
       const prompts = await generatePrompts({
         brand: state.brand,
+        brandMatchNames: matchNamesFor(state.brand, state.detectedBrand, state.brandMatchNames),
+        competitors: state.competitors,
         industry: state.industry,
         personas: selected,
         buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
@@ -400,7 +407,7 @@ export default function App() {
     } finally {
       setPromptsLoading(false);
     }
-  }, [state.personas, state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, state.selectedCategories, categoryBuyerContextOverride, accessCode, update, lockOut]);
+  }, [state.personas, state.brand, state.detectedBrand, state.brandMatchNames, state.competitors, state.industry, state.buyerContext, state.brandSummary, state.market, state.selectedCategories, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   const launchAnalysis = useCallback(async () => {
     const selected = state.personas.filter(p => p.selected);
@@ -416,6 +423,7 @@ export default function App() {
     try {
       const jobId = await startAnalysis({
         brand: state.brand,
+        brandMatchNames: matchNamesFor(state.brand, state.detectedBrand, state.brandMatchNames),
         industry: state.industry,
         competitors: state.competitors,
         personas: selected,
@@ -462,7 +470,7 @@ export default function App() {
         setRunError(errorMessage(e));
       }
     }
-  }, [state.personas, state.brand, state.industry, state.competitors, state.personaPrompts, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
+  }, [state.personas, state.brand, state.detectedBrand, state.brandMatchNames, state.industry, state.competitors, state.personaPrompts, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   useEffect(() => () => closeStream(), [closeStream]);
 
@@ -520,6 +528,8 @@ export default function App() {
     try {
       return await suggestSeedPrompt({
         brand: state.brand,
+        brandMatchNames: matchNamesFor(state.brand, state.detectedBrand, state.brandMatchNames),
+        competitors: state.competitors,
         industry: state.industry,
         personas: targetPersonas,
         seedPrompt,
@@ -534,7 +544,7 @@ export default function App() {
       }
       throw e;
     }
-  }, [state.brand, state.industry, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, lockOut]);
+  }, [state.brand, state.detectedBrand, state.brandMatchNames, state.competitors, state.industry, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, lockOut]);
 
   // Expands a one-line description into a full persona via POST
   // /api/personas/expand — a real billed generation call sharing the same

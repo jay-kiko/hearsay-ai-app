@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generatePrompts, suggestSeedPrompt } from './api';
+import { generatePrompts, startAnalysis, suggestSeedPrompt } from './api';
+import { matchNamesFor } from './brandNames';
 import type { Persona } from './types';
 
 function jsonResponse(body: unknown, ok = true, status = 200) {
@@ -102,7 +103,7 @@ describe('suggestSeedPrompt', () => {
     expect(url).toContain('/api/prompts/seed');
     const body = JSON.parse(init.body as string);
     expect(body.seedPrompt).toBe('What is the best option?');
-    expect(body.personas).toEqual([{ id: 'p1', title: 'Test Persona', role: 'role', pains: 'pains', criteria: 'criteria' }]);
+    expect(body.personas).toEqual([{ id: 'p1', title: 'Test Persona', desc: 'desc', role: 'role', pains: 'pains', criteria: 'criteria' }]);
     expect(body.accessCode).toBe('CODE-1');
   });
 
@@ -116,5 +117,39 @@ describe('suggestSeedPrompt', () => {
     });
     expect(result).toEqual({ p1: 'Adapted question for this persona?' });
     expect(typeof result.p1).toBe('string');
+  });
+});
+
+describe('backend contract', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn().mockResolvedValue(jsonResponse({ prompts: {}, jobId: 'j_1' }));
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  it('sends each persona\'s desc and the brand screen names with prompt generation', async () => {
+    const competitors = [{ name: 'Rival', matchNames: ['Rival'] }];
+    await generatePrompts({ brand: 'Acme', brandMatchNames: ['Acme', 'Acme Pro'], competitors, industry: 'W', personas: [PERSONA], accessCode: 'C' });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.personas[0].desc).toBe('desc');
+    expect(body.brandMatchNames).toEqual(['Acme', 'Acme Pro']);
+    expect(body.competitors).toEqual(competitors);
+  });
+
+  it('sends brandMatchNames with the analysis so aliases count as mentions', async () => {
+    await startAnalysis({ brand: 'Acme', brandMatchNames: ['Acme', 'Acme Pro'], industry: 'W', competitors: [], personas: [PERSONA], prompts: { p1: ['q'] }, accessCode: 'C' });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.brandMatchNames).toEqual(['Acme', 'Acme Pro']);
+  });
+});
+
+describe('matchNamesFor', () => {
+  it('keeps detected aliases through a small edit and always includes the brand field', () => {
+    expect(matchNamesFor('Disney Cruise Line', 'Disney Cruise', ['Disney Cruise', 'DCL'])).toEqual(['Disney Cruise Line', 'Disney Cruise', 'DCL']);
+  });
+
+  it('drops the old brand\'s aliases after a rename to an unrelated brand', () => {
+    expect(matchNamesFor('Royal Caribbean', 'Disney Cruise', ['Disney Cruise', 'DCL'])).toEqual(['Royal Caribbean']);
   });
 });

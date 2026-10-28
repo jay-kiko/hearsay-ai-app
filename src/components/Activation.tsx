@@ -6,7 +6,8 @@ interface ActivationProps {
   onBack: () => void;
 }
 
-function scoreColor(score: number): string {
+function scoreColor(score: number | null): string {
+  if (score === null) return '#999';
   if (score >= 80) return '#1E9E6A';
   if (score >= 55) return '#2D6AE0';
   return '#D2603F';
@@ -42,7 +43,8 @@ export function Activation({ brand, sitelist, onBack }: ActivationProps) {
                   <div className="font-semibold text-[#1b1b1b]">{p.name}</div>
                   <div className="text-xs text-[#999] mt-[1px]">{p.category}</div>
                 </div>
-                <div className="font-bold" style={{ color: scoreColor(p.score) }}>{p.score}</div>
+                {/* null with a single buyer question: reach can't rank anything there */}
+                <div className="font-bold" style={{ color: scoreColor(p.score) }}>{p.score ?? '—'}</div>
                 <div className="text-[12.5px] text-[#666] leading-snug">{p.inventory.length ? p.inventory.join(' · ') : '—'}</div>
                 <div className="text-[13px] text-[#555]">{p.availability}</div>
                 <div className="text-[13px] text-[#555]">{p.cpm}</div>

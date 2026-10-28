@@ -56,6 +56,8 @@ export interface PersonaResult {
   parts: ResponsePart[];
   exchanges: PersonaExchange[];
   opportunity: PersonaOpportunity;
+  // Prompts whose calls failed; left out of every count above.
+  failedPrompts?: number;
 }
 
 export interface HistoryEntry {
@@ -105,6 +107,23 @@ export interface SourceIntel {
   personas: string[];
   competitors: string[];
   visibility: 'Visible' | 'Weak visibility' | 'Not visible';
+  // Brand evidence on the linked page (what `visibility` is derived from).
+  mentions?: number;
+  // The passage naming the brand on that page; empty when mentions is 0.
+  evidence?: string;
+  // Same measure per competitor named on the page, most first.
+  competitorMentions?: Record<string, number>;
+  // Only when the brand isn't visible: rivals named there, or still open.
+  gap?: 'competitor-owned' | 'open' | null;
+}
+
+// One search the source step ran (searched without the brand).
+export interface SourceQuery {
+  persona: string | null;
+  question: string | null;
+  query: string;
+  dropped: boolean; // named a brand anyway; its results were discarded
+  failed: boolean;
 }
 
 export interface AccessCode {
@@ -121,7 +140,8 @@ export type AccessStatus = 'unknown' | 'revoked' | 'exhausted' | 'valid';
 export interface SitelistEntry {
   name: string;
   category: string;
-  score: number;
+  // Reach 0-100; null when fewer than two buyer questions were searched.
+  score: number | null;
   inventory: string[];
   availability: string;
   cpm: string;
@@ -135,7 +155,8 @@ export interface Overview {
   mentionRate: number;
   avgSentiment: Sentiment;
   topCompetitor: string | null;
-  failedCount: number;
+  failedCount: number; // personas that failed entirely
+  failedPrompts?: number; // prompts that failed inside otherwise successful personas
 }
 
 export interface Sources {
@@ -143,6 +164,9 @@ export interface Sources {
   publishers: Publisher[];
   communities: Community[];
   sourceIntel: SourceIntel[];
+  queries?: SourceQuery[];
+  // Set when coverage is thin or a search failed; show it with the list.
+  coverageNote?: string | null;
 }
 
 export interface ScoreComponent {
@@ -187,6 +211,8 @@ export interface AnalysisResult {
 
 export interface DetectResult {
   brand: string;
+  // Every name variant that counts as the brand (product lines, short forms).
+  brandMatchNames: string[];
   industry: string;
   competitors: Competitor[];
   buyerContext: string;
@@ -220,6 +246,9 @@ export interface AppState {
   step: number;
   query: string;
   brand: string;
+  // Aliases detect found for `detectedBrand`; see matchNamesFor in App.tsx.
+  brandMatchNames: string[];
+  detectedBrand: string;
   industry: string;
   detectedIndustry: string;
   competitors: Competitor[];
