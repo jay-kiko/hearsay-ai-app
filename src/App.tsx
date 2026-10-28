@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AccessCode, AnalysisResult, AppState, CategoryOption, Persona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
 import { matchNamesFor } from './brandNames';
+import { promptsForRun } from './limits';
 import { ApiError, checkAccessStatus, detectBrand, expandPersona, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis, suggestSeedPrompt } from './api';
 import { Nav } from './components/Nav';
 import { Home } from './components/Home';
@@ -427,7 +428,7 @@ export default function App() {
         industry: state.industry,
         competitors: state.competitors,
         personas: selected,
-        prompts: state.personaPrompts,
+        prompts: promptsForRun(selected.map(p => p.id), state.personaPrompts),
         buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
         brandSummary: state.brandSummary,
         market: state.market,

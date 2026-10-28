@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LIMITS } from '../limits';
 import type { Persona, AIModel, CategoryOption, Competitor } from '../types';
 
 const PERSONA_DESC_MIN = 10;
@@ -104,13 +105,13 @@ function StepBrand({ brand, industry, competitors, brandSummary, newCompetitor, 
         <div className="flex gap-6 flex-wrap">
           <div className="flex-1 min-w-[240px]">
             <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">Brand / Product</label>
-            <input value={brand} onChange={e => onBrand(e.target.value)} className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[15px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
+            <input value={brand} maxLength={LIMITS.name} onChange={e => onBrand(e.target.value)} className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[15px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
           </div>
           <div className="flex-1 min-w-[240px]">
             <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">
               Industry / Category <span className="text-[#2D6AE0] normal-case tracking-normal font-medium">· auto-detected</span>
             </label>
-            <input value={industry} onChange={e => onIndustry(e.target.value)} className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[15px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
+            <input value={industry} maxLength={LIMITS.line} onChange={e => onIndustry(e.target.value)} className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[15px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
           </div>
         </div>
 
@@ -118,11 +119,15 @@ function StepBrand({ brand, industry, competitors, brandSummary, newCompetitor, 
           <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">Brand summary</label>
           <textarea
             value={brandSummary}
+            maxLength={LIMITS.paragraph}
             onChange={e => onBrandSummary(e.target.value)}
             rows={3}
             placeholder="A short description of the brand and what it offers…"
             className="w-full border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[14.5px] leading-[1.55] text-[#333] resize-y focus:border-[#2D6AE0] focus:outline-none transition-colors"
           />
+          {brandSummary.length > LIMITS.paragraph * 0.8 && (
+            <div className="text-[11.5px] text-[#AAA] mt-[5px]">{brandSummary.length}/{LIMITS.paragraph}</div>
+          )}
           <p className="text-[12.5px] text-[#999] mt-[7px] leading-relaxed">Used to generate more accurate personas and prompts — not shown to the AI models when we measure whether they mention the brand organically.</p>
         </div>
 
@@ -136,7 +141,7 @@ function StepBrand({ brand, industry, competitors, brandSummary, newCompetitor, 
               </span>
             ))}
             <span className="inline-flex items-center gap-1.5">
-              <input value={newCompetitor} onChange={e => onNewCompetitor(e.target.value)} onKeyDown={e => e.key === 'Enter' && onAddCompetitor()} placeholder="Add competitor" className="border border-dashed border-[#CFCFCF] rounded-full px-[14px] py-[7px] text-[13.5px] w-[140px] focus:border-[#2D6AE0] focus:outline-none" />
+              <input value={newCompetitor} maxLength={LIMITS.name} onChange={e => onNewCompetitor(e.target.value)} onKeyDown={e => e.key === 'Enter' && onAddCompetitor()} placeholder="Add competitor" className="border border-dashed border-[#CFCFCF] rounded-full px-[14px] py-[7px] text-[13.5px] w-[140px] focus:border-[#2D6AE0] focus:outline-none" />
               <span onClick={onAddCompetitor} className="text-[13.5px] text-[#2D6AE0] font-semibold cursor-pointer hover:opacity-80">+ Add</span>
             </span>
           </div>
@@ -215,6 +220,7 @@ function StepCategory({ industry, market, customCategory, categories, selectedCa
       <div className="flex items-center gap-2.5 mt-4">
         <input
           value={customCategory}
+          maxLength={LIMITS.name}
           onChange={e => onCustomCategory(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addCustom()}
           placeholder="Or type your own category and add it"
@@ -238,7 +244,7 @@ function StepCategory({ industry, market, customCategory, categories, selectedCa
 
       <div className="mt-8 pt-7 border-t border-[#ECECEC]">
         <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">Geographic focus <span className="text-[#B0B0B0] normal-case tracking-normal font-medium">· optional</span></label>
-        <input value={market} onChange={e => onMarket(e.target.value)} placeholder="City, state, country, or ZIP" className="w-full max-w-[380px] border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[14.5px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
+        <input value={market} maxLength={LIMITS.name} onChange={e => onMarket(e.target.value)} placeholder="City, state, country, or ZIP" className="w-full max-w-[380px] border border-[#E2E2E2] rounded-[11px] px-[14px] py-3 text-[14.5px] text-[#222] focus:border-[#2D6AE0] focus:outline-none transition-colors" />
         <p className="text-[12.5px] text-[#999] mt-[7px] leading-relaxed">Grounds personas, prompts, and the final analysis in a specific market.</p>
       </div>
 
@@ -472,6 +478,7 @@ function PromptSuggestBox({ personas, getPersonaPrompts, onAddPrompt, onEditProm
       <div className="flex flex-col sm:flex-row gap-2.5">
         <input
           value={seed}
+          maxLength={LIMITS.prompt}
           onChange={e => setSeed(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && suggest()}
           placeholder="e.g. which tool handles client reporting best?"
@@ -503,6 +510,7 @@ function PromptSuggestBox({ personas, getPersonaPrompts, onAddPrompt, onEditProm
                   <div className="text-[12px] font-semibold text-[#666] mb-1">{p.title}</div>
                   <textarea
                     value={drafts[p.id]}
+                    maxLength={LIMITS.prompt}
                     onChange={e => setDrafts(s => (s ? { ...s, [p.id]: e.target.value } : s))}
                     className="w-full border border-[#E6E6E6] rounded-[8px] px-3 py-2 text-[13.5px] leading-[1.5] text-[#333] resize-y min-h-[44px] font-inherit bg-white focus:border-[#2D6AE0] focus:outline-none"
                   />
@@ -568,6 +576,7 @@ function StepPrompts({ personas, promptsExpanded, promptsLoading, promptsError, 
                     <div key={idx} className="flex gap-2 items-start">
                       <textarea
                         value={value}
+                        maxLength={LIMITS.prompt}
                         onChange={e => onEditPrompt(p.id, idx, e.target.value)}
                         placeholder="Type a prompt this persona might ask…"
                         className="flex-1 border border-[#E6E6E6] rounded-[10px] px-[14px] py-3 text-sm leading-[1.55] text-[#333] resize-y min-h-[56px] font-inherit focus:border-[#2D6AE0] focus:outline-none"

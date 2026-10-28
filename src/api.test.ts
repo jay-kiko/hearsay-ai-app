@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { formatErrorDetail, generatePrompts, startAnalysis, suggestSeedPrompt } from './api';
 import { matchNamesFor } from './brandNames';
+import { promptsForRun } from './limits';
 import type { Persona } from './types';
 
 function jsonResponse(body: unknown, ok = true, status = 200) {
@@ -167,5 +168,12 @@ describe('formatErrorDetail', () => {
   it('names nested fields by their first named part', () => {
     const detail = [{ loc: ['body', 'prompts', 'p1', 0], msg: 'String should have at most 500 characters' }];
     expect(formatErrorDetail(detail)).toBe('Prompts: String should have at most 500 characters');
+  });
+});
+
+describe('promptsForRun', () => {
+  it('sends selected personas only, without blank prompts', () => {
+    const prompts = { p1: ['  a ', '', '   '], p2: ['b'], p3: [''] };
+    expect(promptsForRun(['p1', 'p3'], prompts)).toEqual({ p1: ['a'] });
   });
 });
