@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Competitor, CompetitorDiagnosis, Opportunity, Persona, PersonaOpportunity, PersonaResult, Product, Overview, RadarCategory, ScoreComponent, Sources, SourceIntel, Sentiment } from '../types';
+import type { Competitor, CompetitorDiagnosis, Opportunity, Persona, PersonaOpportunity, PersonaResult, Product, Overview, RadarCategory, ScoreComponent, Sources, SourceIntel, SourceQuery, Sentiment } from '../types';
 import { buildReportCsv, downloadCsv } from '../csv';
 
 interface ResultsProps {
@@ -349,18 +349,19 @@ function DiagnosisColumn({ title, items, color, bg }: { title: string; items: st
   );
 }
 
-// The domain competitors get discussed on but the brand doesn't (or barely
-// does), weighted by how often it's cited — the highest-leverage source gap
-// to close. All derived client-side from sourceIntel; no dedicated backend
-// field for this.
+// The source rivals are named on but the brand isn't (the backend's measured
+// gap), weighted by how many pages turned up there — the highest-leverage
+// source gap to close.
 function mostInfluentialSourceGap(sourceIntel: SourceIntel[]): SourceIntel | null {
-  const gaps = sourceIntel.filter(s => s.visibility !== 'Visible' && s.competitors.length > 0);
+  const gaps = sourceIntel.filter(s =>
+    s.gap !== undefined ? s.gap === 'competitor-owned' : s.visibility !== 'Visible' && s.competitors.length > 0
+  );
   if (gaps.length === 0) return null;
   return gaps.reduce((best, s) => (s.cited > best.cited ? s : best));
 }
 
 // The inverse read — where the brand is already well-represented, weighted
-// by how often that source gets cited.
+// by how many pages turned up there.
 function mostCitedVisibleSource(sourceIntel: SourceIntel[]): SourceIntel | null {
   const visible = sourceIntel.filter(s => s.visibility === 'Visible');
   if (visible.length === 0) return null;
@@ -450,24 +451,39 @@ function SourceDetailColumn({ label, items }: { label: string; items: string[] }
   );
 }
 
-// One expandable card per cited domain (capped to the 15 most-cited by the
-// backend). Individual domains can come back with empty keywords/personas/
-// competitors and visibility "Not visible" if enrichment didn't have enough
-// signal for that one domain specifically — that's "no signal," not broken
-// data, so it renders the same way as any other domain, just with empty
-// detail columns.
-function SourceIntelList({ sourceIntel }: { sourceIntel: SourceIntel[] }) {
-  const [open, setOpen] = useState<string | null>(null);
+const GAP_LABEL: Record<'competitor-owned' | 'open', { text: string; color: string; bg: string }> = {
+  'competitor-owned': { text: 'Rivals named here', color: '#C2543A', bg: '#FBEDE8' },
+  open: { text: 'Open', color: '#2D6AE0', bg: '#EEF3FE' },
+};
 
-  if (sourceIntel.length === 0) {
-    return <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] text-[13.5px] text-[#999]">Not enough data yet for source-level detail.</div>;
-  }
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
+// One expandable card per independent source page. Sources come from a search
+// of each persona's buyer question (never the brand's name), and the brand and
+// rivals are then counted on the linked page itself — so "Visible" means the
+// page names the brand, and the link goes to that page. Keywords and type are
+// the only model estimates here.
+function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: SourceIntel[]; coverageNote?: string | null; queries?: SourceQuery[] }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [showQueries, setShowQueries] = useState(false);
 
   return (
     <div className="flex flex-col gap-2.5">
+      {coverageNote && (
+        <div className="bg-[#FBF2E2] border border-[#F0E0C0] rounded-[12px] px-[18px] py-3 text-[13px] text-[#7a5a20]">{coverageNote}</div>
+      )}
+      {sourceIntel.length === 0 && !coverageNote && (
+        <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] text-[13.5px] text-[#999]">No independent sources came back for these buyer questions.</div>
+      )}
       {sourceIntel.map(s => {
         const isOpen = open === s.domain;
         const vis = SOURCE_VISIBILITY_STYLE[s.visibility];
+        const gap = s.gap ? GAP_LABEL[s.gap] : null;
+        const rivals = s.competitorMentions && Object.keys(s.competitorMentions).length
+          ? Object.entries(s.competitorMentions).map(([name, n]) => `${name} (${n})`)
+          : s.competitors;
         return (
           <div key={s.domain} className="bg-white border border-[#ECECEC] rounded-[14px] overflow-hidden break-inside-avoid">
             <div onClick={() => setOpen(isOpen ? null : s.domain)} className="px-5 py-4 flex flex-wrap items-center gap-x-3 gap-y-2 cursor-pointer hover:bg-[#FAFBFD]">
@@ -477,25 +493,47 @@ function SourceIntelList({ sourceIntel }: { sourceIntel: SourceIntel[] }) {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap" style={{ color: vis.color, background: vis.bg }}>{s.visibility}</span>
-                <span className="text-xs text-[#999] bg-[#F4F4F4] rounded-full px-2.5 py-[3px]">{s.cited}×</span>
+                {gap && <span className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap" style={{ color: gap.color, background: gap.bg }}>{gap.text}</span>}
+                <span className="text-xs text-[#999] bg-[#F4F4F4] rounded-full px-2.5 py-[3px]">{plural(s.cited, 'page')}</span>
                 <span className="text-[#999] text-sm print:hidden">{isOpen ? '▲' : '▼'}</span>
               </div>
             </div>
             <div className={`px-5 pb-5 border-t border-[#F2F2F2] ${isOpen ? '' : 'hidden'} print:block`}>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-4 pb-4 mb-1 border-b border-[#F2F2F2] text-[13px]">
-                <span className="text-[#666]">Your brand <strong style={{ color: vis.color }}>{s.visibility}</strong> here</span>
-                <span className="text-[#666]">Cited <strong className="text-[#1b1b1b]">{s.cited}×</strong> across AI responses</span>
-                <a href={s.url} target="_blank" rel="noreferrer" className="text-[#2D6AE0] font-semibold hover:opacity-80">Open source →</a>
+                <span className="text-[#666]">Your brand <strong style={{ color: vis.color }}>{s.visibility}</strong> on the linked page</span>
+                <span className="text-[#666]"><strong className="text-[#1b1b1b]">{plural(s.cited, 'page')}</strong> found by buyers' searches</span>
+                <a href={s.url} target="_blank" rel="noreferrer" className="text-[#2D6AE0] font-semibold hover:opacity-80">Open page →</a>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <SourceDetailColumn label="Keywords" items={s.keywords} />
-                <SourceDetailColumn label="Resonates with" items={s.personas} />
-                <SourceDetailColumn label="Discusses competitors" items={s.competitors} />
+              {s.evidence && (
+                <blockquote className="text-[13px] text-[#555] italic border-l-2 border-[#E2E6EC] pl-3 my-3 leading-relaxed">"{s.evidence}"</blockquote>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+                <SourceDetailColumn label="Keywords (estimated)" items={s.keywords} />
+                <SourceDetailColumn label="Surfaced by" items={s.personas} />
+                <SourceDetailColumn label="Rivals named here" items={rivals} />
               </div>
             </div>
           </div>
         );
       })}
+      {queries && queries.length > 0 && (
+        <div className="mt-2 text-[12.5px] text-[#888] print:hidden">
+          <span onClick={() => setShowQueries(v => !v)} className="cursor-pointer font-semibold hover:text-[#555]">
+            {showQueries ? '▲' : '▼'} Searches we ran ({queries.length})
+          </span>
+          {showQueries && (
+            <ul className="mt-2 flex flex-col gap-1">
+              {queries.map((q, i) => (
+                <li key={i}>
+                  {q.persona ? <strong className="text-[#666]">{q.persona}: </strong> : null}"{q.query}"
+                  {q.dropped && <span className="text-[#C2543A]"> · named a brand, results discarded</span>}
+                  {q.failed && <span className="text-[#C2543A]"> · search failed</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -582,14 +620,7 @@ export function Results({ brand, industry, personas, results, overview, products
   const topCompetitorCount = overview.topCompetitor ? products.find(p => p.name === overview.topCompetitor)?.count ?? 0 : 0;
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const totalPromptsRun = Object.values(results).reduce((sum, r) => sum + r.exchanges.length, 0);
-  // sourceIntel has one entry per citation (always == citations.length), so
-  // it can't stand in for a genuinely deduped source count on its own —
-  // union citations/publishers/communities by name instead.
-  const distinctSourceCount = new Set([
-    ...sources.citations.map(c => c.domain),
-    ...sources.publishers.map(p => p.name),
-    ...sources.communities.map(c => c.name),
-  ]).size;
+  const pagesFound = sources.sourceIntel.reduce((sum, s) => sum + s.cited, 0);
   const sourceGap = mostInfluentialSourceGap(sources.sourceIntel);
   const topSource = mostCitedVisibleSource(sources.sourceIntel);
   // No dedicated backend field for "biggest opportunity" — best-effort read
@@ -639,18 +670,22 @@ export function Results({ brand, industry, personas, results, overview, products
           <span className="text-[13px] text-[#888] ml-1.5">prompts run</span>
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[12px] px-4 py-3">
-          <span className="text-[20px] font-bold text-[#1b1b1b]">{sources.citations.length}</span>
-          <span className="text-[13px] text-[#888] ml-1.5">citations captured</span>
+          <span className="text-[20px] font-bold text-[#1b1b1b]">{sources.sourceIntel.length}</span>
+          <span className="text-[13px] text-[#888] ml-1.5">independent sources</span>
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[12px] px-4 py-3">
-          <span className="text-[20px] font-bold text-[#1b1b1b]">{distinctSourceCount}</span>
-          <span className="text-[13px] text-[#888] ml-1.5">distinct sources</span>
+          <span className="text-[20px] font-bold text-[#1b1b1b]">{pagesFound}</span>
+          <span className="text-[13px] text-[#888] ml-1.5">pages behind them</span>
         </div>
       </div>
 
-      {overview.failedCount > 0 && (
+      {(overview.failedCount > 0 || (overview.failedPrompts ?? 0) > 0) && (
         <div className="bg-[#FBEDE8] border border-[#F0D2C4] rounded-[12px] px-[18px] py-3 text-[13.5px] text-[#8a4530] mb-7">
-          {overview.failedCount} of {overview.failedCount + overview.total} persona {overview.failedCount === 1 ? 'query' : 'queries'} failed to run and {overview.failedCount === 1 ? "isn't" : "aren't"} reflected below.
+          {[
+            overview.failedCount > 0 && `${plural(overview.failedCount, 'persona')} failed to run`,
+            (overview.failedPrompts ?? 0) > 0 && `${plural(overview.failedPrompts ?? 0, 'question')} couldn't be answered`,
+          ].filter(Boolean).join(' and ')}
+          {' '}this run, so {overview.failedCount + (overview.failedPrompts ?? 0) === 1 ? "it isn't" : "they aren't"} counted below.
         </div>
       )}
 
@@ -682,9 +717,9 @@ export function Results({ brand, industry, personas, results, overview, products
           </div>
           <TopCompetitorCard topCompetitor={overview.topCompetitor} count={topCompetitorCount} />
           <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] break-inside-avoid">
-            <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Most Cited Source</div>
+            <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Top Source Naming You</div>
             <div className="text-[20px] font-bold mt-3 truncate">{topSource?.domain ?? '—'}</div>
-            <div className="text-[13px] text-[#888] mt-1.5">{topSource ? `cited ${topSource.cited}× · your brand ${topSource.visibility.toLowerCase()}` : 'no source yet shows you as visible'}</div>
+            <div className="text-[13px] text-[#888] mt-1.5">{topSource ? topSource.influence : 'no source yet names you'}</div>
           </div>
         </div>
 
@@ -807,8 +842,8 @@ export function Results({ brand, industry, personas, results, overview, products
       {/* Sources */}
       <TabPanel active={tab === 'sources'}>
         <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-1 break-after-avoid">Source Intelligence</h3>
-        <div className="text-[13px] text-[#999] mb-[18px]">What each cited domain says, the language it uses, and which buyers it resonates with. Expand a row for detail.</div>
-        <SourceIntelList sourceIntel={sources.sourceIntel} />
+        <div className="text-[13px] text-[#999] mb-[18px]">Independent pages your buyers' own questions turn up (searched without your brand name), and whether you and your rivals are named on each. Expand a row for detail.</div>
+        <SourceIntelList sourceIntel={sources.sourceIntel} coverageNote={sources.coverageNote} queries={sources.queries} />
       </TabPanel>
 
       {/* Opportunities */}

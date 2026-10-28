@@ -194,3 +194,43 @@ describe('Results — per-persona opportunity badge', () => {
     expect(screen.getAllByText(opportunity).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('Results — sources (measured, buyer-found)', () => {
+  const source = {
+    domain: 'forum.example',
+    url: 'https://forum.example/t/family-cruise',
+    category: 'COMMUNITY',
+    influence: 'High reach · 2 of 3 buyer questions',
+    cited: 2,
+    keywords: ['family cruise'],
+    personas: ['Test Persona'],
+    competitors: ['Rival Co'],
+    visibility: 'Not visible' as const,
+    mentions: 0,
+    evidence: '',
+    competitorMentions: { 'Rival Co': 3 },
+    gap: 'competitor-owned' as const,
+  };
+
+  it('shows the gap, rival counts, page count and coverage note, not "cited across AI responses"', () => {
+    const sources: Sources = { ...SOURCES, sourceIntel: [source], coverageNote: 'Only 1 independent sources came back.', queries: [] };
+    render(<Results {...baseProps({ sources })} />);
+    expect(screen.getAllByText('Rivals named here').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Rival Co (3)')).toBeInTheDocument();
+    expect(screen.getByText('Only 1 independent sources came back.')).toBeInTheDocument();
+    expect(screen.queryByText(/across AI responses/)).not.toBeInTheDocument();
+  });
+
+  it('quotes the evidence passage when the brand is named on the page', () => {
+    const visible = { ...source, visibility: 'Visible' as const, mentions: 3, gap: null, evidence: 'We loved Acme for the kids.' };
+    render(<Results {...baseProps({ sources: { ...SOURCES, sourceIntel: [visible] } })} />);
+    expect(screen.getByText('"We loved Acme for the kids."')).toBeInTheDocument();
+  });
+});
+
+describe('Results — failures are counted in their own units', () => {
+  it('reports failed personas and failed questions separately', () => {
+    render(<Results {...baseProps({ overview: { ...OVERVIEW, failedCount: 1, failedPrompts: 2 } })} />);
+    expect(screen.getByText(/1 persona failed to run and 2 questions couldn't be answered/)).toBeInTheDocument();
+  });
+});
