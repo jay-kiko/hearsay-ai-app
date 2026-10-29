@@ -219,6 +219,9 @@ export interface DetectResult {
   brand: string;
   // Every name variant that counts as the brand (product lines, short forms).
   brandMatchNames: string[];
+  // Ambiguous names that count only alongside one of categoryTerms.
+  brandContextNames?: string[];
+  categoryTerms?: string[];
   industry: string;
   competitors: Competitor[];
   buyerContext: string;
@@ -252,8 +255,10 @@ export interface AppState {
   step: number;
   query: string;
   brand: string;
-  // Aliases detect found for `detectedBrand`; see matchNamesFor in App.tsx.
+  // Names detect found for `detectedBrand`; see brandNames.ts.
   brandMatchNames: string[];
+  brandContextNames: string[];
+  categoryTerms: string[];
   detectedBrand: string;
   industry: string;
   detectedIndustry: string;

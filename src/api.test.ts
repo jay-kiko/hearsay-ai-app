@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { formatErrorDetail, generatePrompts, startAnalysis, suggestSeedPrompt } from './api';
-import { matchNamesFor } from './brandNames';
+import { brandNameFields, matchNamesFor } from './brandNames';
 import { promptsForRun } from './limits';
 import type { Persona } from './types';
 
@@ -175,5 +175,19 @@ describe('promptsForRun', () => {
   it('sends selected personas only, without blank prompts', () => {
     const prompts = { p1: ['  a ', '', '   '], p2: ['b'], p3: [''] };
     expect(promptsForRun(['p1', 'p3'], prompts)).toEqual({ p1: ['a'] });
+  });
+});
+
+describe('brandNameFields', () => {
+  const detected = { brand: 'Disney Cruise Line', brandMatchNames: ['Disney Cruise Line', 'Disney Wish'], brandContextNames: ['Disney'], categoryTerms: ['cruise', 'ship'] };
+
+  it('sends product names, context names and category words for the detected brand', () => {
+    expect(brandNameFields('Disney Cruise Line', detected)).toEqual({
+      brandMatchNames: ['Disney Cruise Line', 'Disney Wish'], brandContextNames: ['Disney'], categoryTerms: ['cruise', 'ship'],
+    });
+  });
+
+  it('drops them all after a rename to an unrelated brand', () => {
+    expect(brandNameFields('Royal Caribbean', detected)).toEqual({ brandMatchNames: ['Royal Caribbean'], brandContextNames: [], categoryTerms: [] });
   });
 });

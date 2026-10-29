@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AccessCode, AnalysisResult, AppState, CategoryOption, Persona, PersonaResult } from './types';
 import { INITIAL_PERSONAS, INITIAL_MODELS } from './data';
-import { matchNamesFor } from './brandNames';
+import { brandNameFields } from './brandNames';
 import { promptsForRun } from './limits';
 import { DEFAULT_COUNTRY, composeMarket } from './market';
 import { ApiError, checkAccessStatus, detectBrand, expandPersona, generatePersonas, generatePrompts, getCategories, listCodes, mintCodes, revokeCode, startAnalysis, streamAnalysis, suggestSeedPrompt } from './api';
@@ -76,6 +76,8 @@ const INITIAL_STATE: AppState = {
   query: '',
   brand: 'Flowstate',
   brandMatchNames: [],
+  brandContextNames: [],
+  categoryTerms: [],
   detectedBrand: '',
   industry: 'Project Management Software',
   detectedIndustry: 'Project Management Software',
@@ -100,6 +102,10 @@ const INITIAL_STATE: AppState = {
 
 export default function App() {
   const [state, setState] = useState<AppState>(INITIAL_STATE);
+  const detectedNames = useMemo(
+    () => ({ brand: state.detectedBrand, brandMatchNames: state.brandMatchNames, brandContextNames: state.brandContextNames, categoryTerms: state.categoryTerms }),
+    [state.detectedBrand, state.brandMatchNames, state.brandContextNames, state.categoryTerms],
+  );
   const searchRef = useRef<HTMLTextAreaElement>(null);
   const closeStreamRef = useRef<(() => void) | null>(null);
 
@@ -285,6 +291,8 @@ export default function App() {
         query: q,
         brand: detected.brand,
         brandMatchNames: detected.brandMatchNames ?? [],
+        brandContextNames: detected.brandContextNames ?? [],
+        categoryTerms: detected.categoryTerms ?? [],
         detectedBrand: detected.brand,
         industry: detected.industry,
         detectedIndustry: detected.industry,
@@ -386,7 +394,7 @@ export default function App() {
       const selected = state.personas.filter(p => p.selected);
       const prompts = await generatePrompts({
         brand: state.brand,
-        brandMatchNames: matchNamesFor(state.brand, state.detectedBrand, state.brandMatchNames),
+        ...brandNameFields(state.brand, detectedNames),
         competitors: state.competitors,
         industry: state.industry,
         personas: selected,
@@ -413,7 +421,7 @@ export default function App() {
     } finally {
       setPromptsLoading(false);
     }
-  }, [state.personas, state.brand, state.detectedBrand, state.brandMatchNames, state.competitors, state.industry, state.buyerContext, state.brandSummary, state.market, state.selectedCategories, categoryBuyerContextOverride, accessCode, update, lockOut]);
+  }, [state.personas, state.brand, detectedNames, state.competitors, state.industry, state.buyerContext, state.brandSummary, state.market, state.selectedCategories, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   const launchAnalysis = useCallback(async () => {
     const selected = state.personas.filter(p => p.selected);
@@ -429,7 +437,7 @@ export default function App() {
     try {
       const jobId = await startAnalysis({
         brand: state.brand,
-        brandMatchNames: matchNamesFor(state.brand, state.detectedBrand, state.brandMatchNames),
+        ...brandNameFields(state.brand, detectedNames),
         industry: state.industry,
         competitors: state.competitors,
         personas: selected,
@@ -476,7 +484,7 @@ export default function App() {
         setRunError(errorMessage(e));
       }
     }
-  }, [state.personas, state.brand, state.detectedBrand, state.brandMatchNames, state.industry, state.competitors, state.personaPrompts, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
+  }, [state.personas, state.brand, detectedNames, state.industry, state.competitors, state.personaPrompts, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   useEffect(() => () => closeStream(), [closeStream]);
 
@@ -534,7 +542,7 @@ export default function App() {
     try {
       return await suggestSeedPrompt({
         brand: state.brand,
-        brandMatchNames: matchNamesFor(state.brand, state.detectedBrand, state.brandMatchNames),
+        ...brandNameFields(state.brand, detectedNames),
         competitors: state.competitors,
         industry: state.industry,
         personas: targetPersonas,
@@ -550,7 +558,7 @@ export default function App() {
       }
       throw e;
     }
-  }, [state.brand, state.detectedBrand, state.brandMatchNames, state.competitors, state.industry, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, lockOut]);
+  }, [state.brand, detectedNames, state.competitors, state.industry, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, lockOut]);
 
   // Expands a one-line description into a full persona via POST
   // /api/personas/expand — a real billed generation call sharing the same

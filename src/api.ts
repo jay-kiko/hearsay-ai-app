@@ -168,6 +168,8 @@ export async function generatePrompts(args: {
   // Sent so the backend can drop any generated prompt that names the brand
   // (under any alias) or a competitor.
   brandMatchNames?: string[];
+  brandContextNames?: string[];
+  categoryTerms?: string[];
   competitors?: Competitor[];
   industry: string;
   personas: Persona[];
@@ -187,6 +189,8 @@ export async function generatePrompts(args: {
     body: JSON.stringify({
       brand: args.brand,
       brandMatchNames: args.brandMatchNames,
+      brandContextNames: args.brandContextNames,
+      categoryTerms: args.categoryTerms,
       competitors: args.competitors,
       industry: args.industry,
       personas: personaPayload(args.personas),
@@ -205,6 +209,8 @@ export async function generatePrompts(args: {
 export async function suggestSeedPrompt(args: {
   brand: string;
   brandMatchNames?: string[];
+  brandContextNames?: string[];
+  categoryTerms?: string[];
   competitors?: Competitor[];
   industry: string;
   personas: Persona[];
@@ -220,6 +226,8 @@ export async function suggestSeedPrompt(args: {
     body: JSON.stringify({
       brand: args.brand,
       brandMatchNames: args.brandMatchNames,
+      brandContextNames: args.brandContextNames,
+      categoryTerms: args.categoryTerms,
       competitors: args.competitors,
       industry: args.industry,
       personas: personaPayload(args.personas),
@@ -240,6 +248,8 @@ export async function startAnalysis(args: {
   // Without these the backend only recognises the bare brand name in answers
   // and on source pages, missing product-line and short-form mentions.
   brandMatchNames?: string[];
+  brandContextNames?: string[];
+  categoryTerms?: string[];
   industry: string;
   competitors: Competitor[];
   personas: Persona[];
@@ -255,6 +265,8 @@ export async function startAnalysis(args: {
     body: JSON.stringify({
       brand: args.brand,
       brandMatchNames: args.brandMatchNames,
+      brandContextNames: args.brandContextNames,
+      categoryTerms: args.categoryTerms,
       industry: args.industry,
       competitors: args.competitors,
       personas: personaPayload(args.personas),
