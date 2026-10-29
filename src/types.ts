@@ -110,6 +110,9 @@ export interface SourceIntel {
   visibility: 'Visible' | 'Weak visibility' | 'Not visible' | "Couldn't verify";
   // `url` plus a text fragment that scrolls to the first brand mention.
   link?: string;
+  // ISO date of a saved copy (more than a week old) the page was read from,
+  // because the site blocks automated reading; null/absent for a live read.
+  readFromCopy?: string | null;
   // Brand evidence on the linked page (what `visibility` is derived from).
   mentions?: number;
   // The passage naming the brand on that page; empty when mentions is 0.

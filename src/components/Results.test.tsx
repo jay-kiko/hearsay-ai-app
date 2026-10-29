@@ -270,3 +270,14 @@ describe('Results — source links and unreadable pages', () => {
     expect(screen.getAllByText('Something new').length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('Results — sources read from a saved copy', () => {
+  it('shows the copy date so a stale read is never presented as live', () => {
+    const s = {
+      domain: 'blocked.example', url: 'https://blocked.example/p', category: 'REVIEW', influence: '', cited: 1,
+      keywords: [], personas: [], competitors: [], visibility: 'Visible' as const, mentions: 4, readFromCopy: '2026-06-20',
+    };
+    render(<Results {...baseProps({ sources: { ...SOURCES, sourceIntel: [s] } })} />);
+    expect(screen.getByText(/Read from a saved copy of this page \(20 Jun 2026\)/)).toBeInTheDocument();
+  });
+});

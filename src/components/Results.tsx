@@ -459,6 +459,11 @@ const GAP_LABEL: Record<'competitor-owned' | 'open', { text: string; color: stri
   open: { text: 'Open', color: '#2D6AE0', bg: '#EEF3FE' },
 };
 
+function formatCopyDate(iso: string): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
@@ -514,6 +519,11 @@ function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: 
                 <span className="text-[#666]"><strong className="text-[#1b1b1b]">{plural(s.cited, 'page')}</strong> found by buyers' searches</span>
                 <a href={href} target="_blank" rel="noreferrer" className="text-[#2D6AE0] font-semibold hover:opacity-80">{s.link && s.link !== s.url ? 'Open page at the mention →' : 'Open page →'}</a>
               </div>
+              {s.readFromCopy && (
+                <div className="text-[12px] text-[#999] mt-3">
+                  Read from a saved copy of this page ({formatCopyDate(s.readFromCopy)}), because the site blocks automated reading. The live page may have changed since.
+                </div>
+              )}
               {s.evidence && (
                 <blockquote className="text-[13px] text-[#555] italic border-l-2 border-[#E2E6EC] pl-3 my-3 leading-relaxed">"{s.evidence}"</blockquote>
               )}
