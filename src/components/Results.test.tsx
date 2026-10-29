@@ -281,3 +281,12 @@ describe('Results — sources read from a saved copy', () => {
     expect(screen.getByText(/Read from a saved copy of this page \(20 Jun 2026\)/)).toBeInTheDocument();
   });
 });
+
+describe('Results — rival wins column', () => {
+  it('is titled for all rivals, not just the top competitor', () => {
+    const diagnosis = { rivalWins: ['Carnival matches you on free water slides'], brandWins: [], gaps: [] };
+    render(<Results {...baseProps({ competitorDiagnosis: diagnosis })} />);
+    expect(screen.getByText('Where rivals beat you')).toBeInTheDocument();
+    expect(screen.queryByText(/Rival Co wins on/)).not.toBeInTheDocument();
+  });
+});

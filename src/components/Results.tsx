@@ -411,7 +411,7 @@ function TopCompetitorCard({ topCompetitor, count }: { topCompetitor: string | n
 // competitorDiagnosis can come back with all-empty arrays if the underlying
 // AI call failed for this job — that's "not enough data yet," not an error,
 // so it gets a plain empty state rather than being hidden or crashing.
-function CompetitorDiagnosisCard({ diagnosis, topCompetitor }: { diagnosis: CompetitorDiagnosis; topCompetitor: string | null }) {
+function CompetitorDiagnosisCard({ diagnosis }: { diagnosis: CompetitorDiagnosis }) {
   const empty = diagnosis.rivalWins.length === 0 && diagnosis.brandWins.length === 0 && diagnosis.gaps.length === 0;
   return (
     <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 mb-4 break-inside-avoid">
@@ -421,7 +421,9 @@ function CompetitorDiagnosisCard({ diagnosis, topCompetitor }: { diagnosis: Comp
         <div className="text-[13.5px] text-[#999] py-4">Not enough data yet for this report.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <DiagnosisColumn title={`${topCompetitor ?? 'Competitors'} win${topCompetitor ? 's' : ''} on`} items={diagnosis.rivalWins} color="#C2543A" bg="#FBEDE8" />
+          {/* rivalWins covers every rival, not just the top one; the Biggest Threat
+              card already names that one. */}
+          <DiagnosisColumn title="Where rivals beat you" items={diagnosis.rivalWins} color="#C2543A" bg="#FBEDE8" />
           <DiagnosisColumn title="Your brand wins on" items={diagnosis.brandWins} color="#1E9E6A" bg="#E8F6EF" />
           <DiagnosisColumn title="Your biggest visibility gaps" items={diagnosis.gaps} color="#666" bg="#F4F4F4" />
         </div>
@@ -777,7 +779,7 @@ export function Results({ brand, industry, personas, results, overview, products
           <SummaryStatCard label="Biggest Threat" value={overview.topCompetitor ?? 'None surfaced'} />
           <SummaryStatCard label="Most Influential Source Gap" value={sourceGap?.domain ?? 'Not enough data yet'} />
         </div>
-        <CompetitorDiagnosisCard diagnosis={competitorDiagnosis} topCompetitor={overview.topCompetitor} />
+        <CompetitorDiagnosisCard diagnosis={competitorDiagnosis} />
         <div className="grid grid-cols-1 sm:grid-cols-[1.15fr_1fr] gap-4">
           <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 break-inside-avoid">
             <div className="text-[15px] font-semibold mb-1">Competitor comparison</div>
