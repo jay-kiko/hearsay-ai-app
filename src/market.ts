@@ -30,7 +30,7 @@ export const OTHER_COUNTRIES = [
 // '' = no regional focus.
 export const GLOBAL = '';
 
-export const DEFAULT_COUNTRY = 'Singapore';
+export const DEFAULT_COUNTRY = GLOBAL;
 
 // Max area length, so "area, <longest country>" stays within the backend's
 // 120-character market limit.
