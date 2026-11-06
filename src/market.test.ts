@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GLOBAL, LIMITS_SAFE_AREA, composeMarket } from './market';
+import { COUNTRIES, GLOBAL, LIMITS_SAFE_AREA, composeMarket, resolveCountry } from './market';
 
 describe('composeMarket', () => {
   it('sends the country alone, or "area, country"', () => {
@@ -12,11 +12,28 @@ describe('composeMarket', () => {
     expect(composeMarket(GLOBAL, '')).toBe('');
   });
 
-  it('always names Singapore so the backend turns on inventory and localisation', () => {
-    expect(composeMarket('Singapore', 'Jurong')).toMatch(/\bSingapore\b/);
+  it("keeps the longest area + country within the backend's 120-character limit", () => {
+    const longest = [...COUNTRIES].sort((a, b) => b.length - a.length)[0];
+    expect(composeMarket(longest, 'x'.repeat(LIMITS_SAFE_AREA)).length).toBeLessThanOrEqual(120);
+  });
+});
+
+describe('countries', () => {
+  it('covers small markets too, with readable names', () => {
+    for (const c of ['Kenya', 'Peru', 'Estonia', 'Bangladesh', 'Hong Kong', 'Singapore']) {
+      expect(COUNTRIES).toContain(c);
+    }
+    expect(new Set(COUNTRIES).size).toBe(COUNTRIES.length);
   });
 
-  it('keeps the longest area + country within the backend\'s 120-character limit', () => {
-    expect(composeMarket('United Arab Emirates', 'x'.repeat(LIMITS_SAFE_AREA)).length).toBeLessThanOrEqual(120);
+  it('resolves names, codes and common shorthand to one name, and nothing else', () => {
+    expect(resolveCountry('kenya')).toBe('Kenya');
+    expect(resolveCountry(' PE ')).toBe('Peru');
+    expect(resolveCountry('uk')).toBe('United Kingdom');
+    expect(resolveCountry('USA')).toBe('United States');
+    expect(resolveCountry("S'pore")).toBe('Singapore');
+    expect(resolveCountry('Peru')).toBe('Peru');
+    expect(resolveCountry('Jurong')).toBeNull();
+    expect(resolveCountry('')).toBeNull();
   });
 });

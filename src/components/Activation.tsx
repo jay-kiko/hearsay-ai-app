@@ -20,7 +20,7 @@ export function Activation({ brand, sitelist, onBack }: ActivationProps) {
         <div>
           <span onClick={onBack} className="text-[13px] text-[#999] font-semibold cursor-pointer hover:text-[#555]">← Back to results</span>
           <h2 className="text-[32px] tracking-[-0.02em] font-bold mt-2 mb-0">Publisher Sitelist</h2>
-          <div className="text-[14.5px] text-[#888] mt-[3px] max-w-[640px] leading-snug">Third-party publishers that {brand}'s buyers' own questions turn up, ranked by reach: the share of those questions that surfaced each one. In Singapore, CPM, formats and buyability come from real programmatic inventory; elsewhere they're not available yet.</div>
+          <div className="text-[14.5px] text-[#888] mt-[3px] max-w-[640px] leading-snug">Third-party publishers that {brand}'s buyers' own questions turn up, ranked by reach: the share of those questions that surfaced each one. CPM, formats and buyability aren't available yet.</div>
         </div>
         <div className="flex gap-2.5 flex-wrap">
           <button className="bg-white border border-[#DADADA] text-[#444] rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer hover:bg-[#F8F8F8]">Export CSV</button>

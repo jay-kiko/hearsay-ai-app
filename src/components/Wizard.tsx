@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LIMITS } from '../limits';
-import { GLOBAL, LIMITS_SAFE_AREA, OTHER_COUNTRIES, SUPPORTED_COUNTRIES } from '../market';
+import { COUNTRIES, GLOBAL, LIMITS_SAFE_AREA, resolveCountry } from '../market';
 import type { Persona, AIModel, CategoryOption, Competitor } from '../types';
 
 const PERSONA_DESC_MIN = 10;
@@ -249,20 +249,7 @@ function StepCategory({ industry, marketCountry, marketArea, customCategory, cat
       <div className="mt-8 pt-7 border-t border-[#ECECEC]">
         <label className="block text-[12.5px] font-semibold text-[#888] uppercase tracking-[0.03em] mb-[9px]">Geographic focus <span className="text-[#B0B0B0] normal-case tracking-normal font-medium">· optional</span></label>
         <div className="flex gap-2.5 flex-wrap">
-          <select
-            aria-label="Country"
-            value={marketCountry}
-            onChange={e => onMarketCountry(e.target.value)}
-            className="w-full sm:w-[220px] border border-[#E2E2E2] rounded-[11px] px-[12px] py-3 text-[14.5px] text-[#222] bg-white focus:border-[#2D6AE0] focus:outline-none transition-colors"
-          >
-            <optgroup label="Fully supported">
-              {SUPPORTED_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </optgroup>
-            <option value={GLOBAL}>Global / no specific market</option>
-            <optgroup label="Other countries">
-              {OTHER_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </optgroup>
-          </select>
+          <CountryInput value={marketCountry} onChange={onMarketCountry} />
           <input
             aria-label="City or area"
             value={marketArea}
@@ -273,14 +260,9 @@ function StepCategory({ industry, marketCountry, marketArea, customCategory, cat
           />
         </div>
         <p className="text-[12.5px] text-[#999] mt-[7px] leading-relaxed">
-          Grounds personas, prompts, and the final analysis in a specific market.
-          {(SUPPORTED_COUNTRIES as readonly string[]).includes(marketCountry)
-            ? marketCountry === 'Singapore'
-              ? ' Sources are searched as from Singapore, and the sitelist includes programmatic inventory.'
-              : ` Sources are searched as from ${marketCountry}.`
-            : marketCountry
-              ? ' Sources aren\'t localised for this country yet.'
-              : ' Without a market, answers and sources lean global.'}
+          {marketCountry
+            ? `Personas, prompts, answers and source searches all focus on buyers in ${marketCountry}.`
+            : 'Type any country, or leave it empty for a global analysis.'}
         </p>
       </div>
 
@@ -700,6 +682,42 @@ export function Wizard(props: WizardProps) {
       {step === 4 && <StepModels {...props} />}
       {step === 5 && <StepPrompts {...props} />}
       {step === 6 && <StepReview {...props} samplePrompts={samplePrompts} />}
+    </div>
+  );
+}
+
+
+// Free typing with suggestions from every country. Only a recognised country
+// ("uk" -> United Kingdom) is passed up; anything else stays in the box,
+// flagged, and counts as no market, so a typo is never sent as one and the
+// box never shows one country while another is used.
+export function CountryInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const typed = draft.trim();
+  const invalid = typed !== '' && resolveCountry(typed) === null;
+
+  const update = (text: string) => {
+    setDraft(text);
+    onChange(resolveCountry(text) ?? GLOBAL);
+  };
+
+  return (
+    <div className="w-full sm:w-[240px]">
+      <input
+        aria-label="Country"
+        aria-invalid={invalid}
+        aria-describedby={invalid ? 'country-error' : undefined}
+        list="country-options"
+        value={draft}
+        onChange={e => update(e.target.value)}
+        onBlur={() => { const c = resolveCountry(draft); if (c) setDraft(c); }}
+        placeholder="Country, e.g. Kenya"
+        className={`w-full border rounded-[11px] px-[14px] py-3 text-[14.5px] text-[#222] bg-white focus:outline-none transition-colors ${invalid ? 'border-[#C2543A]' : 'border-[#E2E2E2] focus:border-[#2D6AE0]'}`}
+      />
+      <datalist id="country-options">
+        {COUNTRIES.map(c => <option key={c} value={c} />)}
+      </datalist>
+      {invalid && <div id="country-error" className="text-[12px] text-[#C2543A] mt-1">Pick a country from the list.</div>}
     </div>
   );
 }
