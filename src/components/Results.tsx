@@ -470,11 +470,11 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-// One expandable card per independent source page. Sources come from a search
-// of each persona's buyer question (never the brand's name), and the brand and
-// rivals are then counted on the linked page itself — so "Visible" means the
-// page names the brand, and the link goes to that page. Keywords and type are
-// the only model estimates here.
+// One expandable card per source page. Sources come from a search of each
+// persona's buyer question (never the brand's name), and the brand and rivals
+// are then counted on the linked page itself — so "Visible" means the page
+// names the brand, and the link goes to that page. Keywords, type and the
+// "Vendor article" tag are the only model estimates here.
 function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: SourceIntel[]; coverageNote?: string | null; queries?: SourceQuery[] }) {
   const [open, setOpen] = useState<string | null>(null);
   const [showQueries, setShowQueries] = useState(false);
@@ -485,7 +485,7 @@ function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: 
         <div className="bg-[#FBF2E2] border border-[#F0E0C0] rounded-[12px] px-[18px] py-3 text-[13px] text-[#7a5a20]">{coverageNote}</div>
       )}
       {sourceIntel.length === 0 && !coverageNote && (
-        <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] text-[13.5px] text-[#999]">No independent sources came back for these buyer questions.</div>
+        <div className="bg-white border border-[#ECECEC] rounded-[16px] px-6 py-[22px] text-[13.5px] text-[#999]">No sources came back for these buyer questions.</div>
       )}
       {sourceIntel.map(s => {
         const isOpen = open === s.domain;
@@ -505,6 +505,9 @@ function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: 
                 <div className="text-[12px] text-[#999] mt-0.5">{s.category} · {s.influence}</div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                {s.origin === 'vendor' && (
+                  <span title="Written by another business in this category, so its picks may favour itself (our estimate)" className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap text-[#6B5B95] bg-[#F1EEF8]">Vendor article</span>
+                )}
                 <span className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap" style={{ color: vis.color, background: vis.bg }}>{s.visibility}</span>
                 {gap && <span className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap" style={{ color: gap.color, background: gap.bg }}>{gap.text}</span>}
                 <span className="text-xs text-[#999] bg-[#F4F4F4] rounded-full px-2.5 py-[3px]">{plural(s.cited, 'page')}</span>
@@ -693,7 +696,7 @@ export function Results({ brand, industry, personas, results, overview, products
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[12px] px-4 py-3">
           <span className="text-[20px] font-bold text-[#1b1b1b]">{sources.sourceIntel.length}</span>
-          <span className="text-[13px] text-[#888] ml-1.5">independent sources</span>
+          <span className="text-[13px] text-[#888] ml-1.5">sources</span>
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[12px] px-4 py-3">
           <span className="text-[20px] font-bold text-[#1b1b1b]">{pagesFound}</span>
@@ -864,7 +867,7 @@ export function Results({ brand, industry, personas, results, overview, products
       {/* Sources */}
       <TabPanel active={tab === 'sources'}>
         <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-1 break-after-avoid">Source Intelligence</h3>
-        <div className="text-[13px] text-[#999] mb-[18px]">Independent pages your buyers' own questions turn up (searched without your brand name), and whether you and your rivals are named on each. Expand a row for detail.</div>
+        <div className="text-[13px] text-[#999] mb-[18px]">Third-party pages your buyers' own questions turn up (searched without your brand name), and whether you and your rivals are named on each. Pages written by another business in your category are tagged "Vendor article". Expand a row for detail.</div>
         <SourceIntelList sourceIntel={sources.sourceIntel} coverageNote={sources.coverageNote} queries={sources.queries} />
       </TabPanel>
 

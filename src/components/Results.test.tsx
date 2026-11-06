@@ -221,6 +221,13 @@ describe('Results — sources (measured, buyer-found)', () => {
     expect(screen.queryByText(/across AI responses/)).not.toBeInTheDocument();
   });
 
+  it('tags vendor-written pages, and only those', () => {
+    const vendor = { ...source, domain: 'vendor.example', origin: 'vendor' as const };
+    const sources: Sources = { ...SOURCES, sourceIntel: [source, vendor], queries: [] };
+    render(<Results {...baseProps({ sources })} />);
+    expect(screen.getAllByText('Vendor article')).toHaveLength(1);
+  });
+
   it('quotes the evidence passage when the brand is named on the page', () => {
     const visible = { ...source, visibility: 'Visible' as const, mentions: 3, gap: null, evidence: 'We loved Acme for the kids.' };
     render(<Results {...baseProps({ sources: { ...SOURCES, sourceIntel: [visible] } })} />);

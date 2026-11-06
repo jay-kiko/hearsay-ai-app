@@ -121,6 +121,9 @@ export interface SourceIntel {
   competitorMentions?: Record<string, number>;
   // Only when the brand isn't visible: rivals named there, or still open.
   gap?: 'competitor-owned' | 'open' | null;
+  // Model judgement of who wrote the page: 'vendor' = another business in the
+  // category (its lists may favour itself), shown with a "Vendor article" tag.
+  origin?: 'independent' | 'vendor';
 }
 
 // One search the source step ran (searched without the brand).
