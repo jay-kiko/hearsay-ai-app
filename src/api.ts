@@ -62,7 +62,7 @@ export async function checkAccessStatus(code: string): Promise<AccessStatus> {
   return body.status;
 }
 
-export async function detectBrand(args: { query: string; accessCode: string }): Promise<DetectResult> {
+export async function detectBrand(args: { query: string; accessCode: string; market?: string }): Promise<DetectResult> {
   // A real web-search pass plus a structuring call, server-side — routinely
   // 15-30s, longer for ambiguous names. Without a client-side ceiling a truly
   // hung request would just leave the caller waiting forever.
@@ -71,7 +71,7 @@ export async function detectBrand(args: { query: string; accessCode: string }): 
     res = await fetch(`${BASE}/api/detect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: args.query, accessCode: args.accessCode }),
+      body: JSON.stringify({ query: args.query, accessCode: args.accessCode, market: args.market || undefined }),
       signal: AbortSignal.timeout(60_000),
     });
   } catch (e) {

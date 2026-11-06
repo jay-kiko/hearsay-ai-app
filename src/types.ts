@@ -42,6 +42,9 @@ export interface PersonaExchange {
   vis: number;
   quote: string;
   parts: ResponsePart[];
+  // Every answer to this prompt (it is asked several times; the shown answer
+  // is the first). Counts use all of them.
+  samples?: { mentioned: boolean; sentiment: Sentiment; rank: number | null; vis: number; names: string[] }[];
 }
 
 export type PersonaOpportunity = 'Defend' | 'Grow' | 'High' | 'Critical Gap';
@@ -77,6 +80,8 @@ export interface Product {
   count: number;
   share: number;
   isBrand?: boolean;
+  // false: a brand the answers named that isn't on the competitor list.
+  listed?: boolean;
 }
 
 export interface Citation {

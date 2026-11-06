@@ -284,7 +284,9 @@ export default function App() {
     }, 1000);
 
     try {
-      const detected = await detectBrand({ query: q, accessCode });
+      // Competitors are researched for the chosen market (local leaders, not
+      // only global names).
+      const detected = await detectBrand({ query: q, accessCode, market: state.marketCountry });
       update({
         screen: 'wizard',
         step: 1,
@@ -687,6 +689,8 @@ export default function App() {
           detectError={detectError}
           detectMessage={detectSlow ? "This is taking a little longer than usual — ambiguous names can take a bit. Hang tight." : detectMessage}
           searchRef={searchRef}
+          marketCountry={state.marketCountry}
+          onMarketCountry={v => update({ marketCountry: v, market: composeMarket(v, state.marketArea) })}
         />
       )}
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { CountryInput } from './Wizard';
+import { CountryInput } from './CountryInput';
 
 describe('CountryInput', () => {
   it('passes up the canonical country for shorthand', () => {

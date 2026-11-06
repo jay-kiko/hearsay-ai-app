@@ -131,8 +131,25 @@ function PersonaVisibilityTable({ personas, results }: { personas: Persona[]; re
   );
 }
 
+// The brand plus the most-named others, so the brand is never pushed out by
+// unlisted names; the rest are grouped.
+export function topProducts(products: Product[], n: number, grouped = true): Product[] {
+  const brand = products.find(p => p.isBrand);
+  const others = products.filter(p => !p.isBrand);
+  const kept = brand ? [brand, ...others.slice(0, n - 1)] : others.slice(0, n);
+  const rest = others.filter(p => !kept.includes(p));
+  const out = [...kept].sort((a, b) => b.count - a.count);
+  if (grouped && rest.some(p => p.count > 0)) {
+    out.push({
+      name: 'Other brands', count: rest.reduce((s, p) => s + p.count, 0),
+      share: rest.reduce((s, p) => s + p.share, 0), listed: false,
+    });
+  }
+  return out;
+}
+
 function CompetitorBarChart({ products }: { products: Product[] }) {
-  const data = products.slice(0, 5);
+  const data = topProducts(products, 5, false);
   const W = 560, H = 250, padT = 26, padB = 44, x0 = 26;
   const max = Math.max(1, ...data.map(d => d.count));
   const innerW = W - x0 - 20, bw = 60, gap = data.length > 1 ? (innerW - data.length * bw) / (data.length - 1) : 0, chartH = H - padT - padB;
@@ -166,7 +183,7 @@ function CompetitorBarChart({ products }: { products: Product[] }) {
 function ShareOfVoiceChart({ products }: { products: Product[] }) {
   const grays = ['#D7DEE9', '#C7D0DE', '#B7C2D3', '#A7B4C8', '#97A6BD'];
   let gi = 0;
-  const colored = products.map(d => ({ ...d, color: d.isBrand ? ACCENT : grays[gi++ % grays.length] }));
+  const colored = topProducts(products, 7).map(d => ({ ...d, color: d.isBrand ? ACCENT : grays[gi++ % grays.length] }));
   const S = 200, c = S / 2, r = 78, rw = 26;
   let acc = -90;
   const brandShare = colored.find(d => d.isBrand)?.share ?? 0;
@@ -206,7 +223,9 @@ function ProductsMentioned({ products }: { products: Product[] }) {
     <div className="flex flex-col gap-2.5">
       {products.map(p => (
         <div key={p.name} className="flex items-center gap-3">
-          <div className="w-[120px] text-[13.5px] text-[#333] whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0" style={{ fontWeight: p.isBrand ? 700 : 500 }}>{p.name}</div>
+          <div className="w-[120px] text-[13.5px] text-[#333] whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0" style={{ fontWeight: p.isBrand ? 700 : 500 }} title={p.listed === false ? `${p.name}: not on your competitor list` : p.name}>
+            {p.name}{p.listed === false && <span className="text-[11px] text-[#AAA] font-normal"> · not on your list</span>}
+          </div>
           <div className="flex-1 h-[9px] bg-[#F2F2F2] rounded-full overflow-hidden">
             <div className="h-full rounded-full" style={{ width: `${p.share}%`, background: ACCENT }} />
           </div>
@@ -687,7 +706,7 @@ export function Results({ brand, industry, personas, results, overview, products
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 print:hidden">
         <div className="bg-white border border-[#ECECEC] rounded-[12px] px-4 py-3">
-          <span className="text-[20px] font-bold text-[#1b1b1b]">{overview.total}</span>
+          <span className="text-[20px] font-bold text-[#1b1b1b]">{Object.keys(results).length}</span>
           <span className="text-[13px] text-[#888] ml-1.5">personas analyzed</span>
         </div>
         <div className="bg-white border border-[#ECECEC] rounded-[12px] px-4 py-3">
@@ -730,7 +749,7 @@ export function Results({ brand, industry, personas, results, overview, products
           <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] break-inside-avoid">
             <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Mention Rate</div>
             <div className="text-[38px] font-bold tracking-[-0.02em] mt-2.5">{overview.mentioned}<span className="text-[#C8C8C8] text-[26px]"> / {overview.total}</span></div>
-            <div className="text-[13px] text-[#888] mt-1">persona queries mentioned you</div>
+            <div className="text-[13px] text-[#888] mt-1">answers mentioned you</div>
           </div>
           <div className="bg-white border border-[#ECECEC] rounded-[16px] p-[22px] break-inside-avoid">
             <div className="text-[12.5px] text-[#999] font-semibold uppercase tracking-[0.03em]">Avg. Sentiment</div>
@@ -839,6 +858,11 @@ export function Results({ brand, industry, personas, results, overview, products
                           {r.exchanges.length > 1 ? `Prompt ${i + 1} of ${r.exchanges.length}` : 'Prompt sent'}
                         </div>
                         <div className="text-[11.5px] text-[#999]">
+                          {ex.samples && ex.samples.length > 1 && (
+                            <span title="This prompt was asked several times, since answers vary; every answer counts.">
+                              Named in {ex.samples.filter(s => s.mentioned).length} of {ex.samples.length} answers · Shown:{' '}
+                            </span>
+                          )}
                           {ex.mentioned ? <span className="text-[#2D6AE0] font-semibold">Mentioned</span> : 'Not mentioned'} · {ex.sentiment} · Visibility {ex.vis}/100
                         </div>
                       </div>

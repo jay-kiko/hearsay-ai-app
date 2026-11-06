@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Results } from './Results';
+import { Results, topProducts } from './Results';
 import type { Persona, PersonaResult, Product, Overview, Sources, ScoreComponent, CompetitorDiagnosis, Opportunity, RadarCategory } from '../types';
 
 const PERSONA: Persona = {
@@ -296,4 +296,35 @@ describe('Results — rival wins column', () => {
     expect(screen.getByText('Where rivals beat you')).toBeInTheDocument();
     expect(screen.queryByText(/Rival Co wins on/)).not.toBeInTheDocument();
   });
+});
+
+
+describe('answers per prompt and brands outside the list', () => {
+  it('keeps the brand in the chart and groups the rest', () => {
+    const products: Product[] = [
+      { name: 'Saucony', count: 9, share: 30, listed: false },
+      { name: 'Brooks', count: 8, share: 27, listed: false },
+      { name: 'Hoka', count: 6, share: 20 },
+      { name: 'Puma', count: 4, share: 13, listed: false },
+      { name: 'Acme', count: 3, share: 10, isBrand: true },
+    ];
+    const top = topProducts(products, 3);
+    expect(top.map(p => p.name)).toEqual(['Saucony', 'Brooks', 'Acme', 'Other brands']);
+    expect(top[3].count).toBe(10);
+    expect(topProducts(products, 3, false).map(p => p.name)).not.toContain('Other brands');
+  });
+
+  it('says how many answers to a prompt named the brand', () => {
+    const sample = (mentioned: boolean) => ({ mentioned, sentiment: 'Positive' as const, rank: mentioned ? 1 : null, vis: 0, names: [] });
+    const result = { ...RESULT, exchanges: [{ ...RESULT.exchanges[0], samples: [sample(true), sample(false), sample(true)] }] };
+    render(<Results {...baseProps({ results: { p1: result } })} />);
+    expect(screen.getAllByText(/Named in 2 of 3 answers/).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+
+it('counts personas as personas, not prompts', () => {
+  const twoPrompts = { ...RESULT, exchanges: [RESULT.exchanges[0], RESULT.exchanges[0]] };
+  render(<Results {...baseProps({ results: { p1: twoPrompts }, overview: { ...OVERVIEW, total: 6 } })} />);
+  expect(screen.getByText('personas analyzed').previousSibling?.textContent).toBe('1');
 });

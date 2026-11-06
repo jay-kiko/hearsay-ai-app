@@ -1,4 +1,5 @@
 import kikologo from "../assets/kiko-logo.png"
+import { CountryInput } from './CountryInput';
 
 interface HomeProps {
   query: string;
@@ -8,6 +9,8 @@ interface HomeProps {
   detectError: string | null;
   detectMessage: string;
   searchRef: React.RefObject<HTMLTextAreaElement>;
+  marketCountry: string;
+  onMarketCountry: (v: string) => void;
 }
 
 const PILLS = [
@@ -19,7 +22,7 @@ const PILLS = [
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
-function Hero({ query, onQuery, onStartWizard, detecting, detectError, detectMessage, searchRef }: HomeProps) {
+function Hero({ query, onQuery, onStartWizard, detecting, detectError, detectMessage, searchRef, marketCountry, onMarketCountry }: HomeProps) {
   return (
     <div className="max-w-[780px] mx-auto px-4 sm:px-6 py-14 sm:py-[84px] pb-16 sm:pb-[100px] text-center animate-fadeUp">
       <div className="flex items-center justify-center gap-2 text-[28px] sm:text-[36px]">
@@ -63,6 +66,11 @@ function Hero({ query, onQuery, onStartWizard, detecting, detectError, detectMes
             }
           </button>
         </div>
+      </div>
+      <div className="flex flex-wrap items-start justify-center gap-x-3 gap-y-1 mt-3 text-left">
+        <span className="text-[13px] text-[#888] pt-3">Buyers in</span>
+        <CountryInput value={marketCountry} onChange={onMarketCountry} />
+        <span className="text-[12.5px] text-[#9A9A9A] pt-3 max-w-[260px]">Optional. Competitors are picked for this market.</span>
       </div>
       {detectError && (
         <div className="flex flex-wrap items-center justify-center gap-2 mt-3 text-[13px]">
