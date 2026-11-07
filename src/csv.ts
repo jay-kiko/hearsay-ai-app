@@ -35,11 +35,11 @@ export function buildReportCsv(args: {
   for (const p of products) csv += csvRow([p.name, p.count, p.share]);
   csv += '\r\n';
 
-  csv += csvRow(['Persona', 'Mentioned', 'Sentiment', 'Visibility', 'Rank', 'Prompt', 'Quote']);
+  csv += csvRow(['Persona', 'Mentioned', 'Sentiment', 'Visibility', 'Prompt', 'Quote']);
   for (const p of personas.filter(p => p.selected)) {
     const r = results[p.id];
     if (!r) continue;
-    csv += csvRow([p.title, r.mentioned ? 'Yes' : 'No', r.sentiment, r.vis, r.rank ?? '', r.prompt, r.quote]);
+    csv += csvRow([p.title, r.mentioned ? 'Yes' : 'No', r.sentiment, r.vis, r.prompt, r.quote]);
   }
 
   return csv;

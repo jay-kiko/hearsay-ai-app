@@ -23,32 +23,16 @@ interface ResultsProps {
 const ACCENT = '#2D6AE0';
 const SENTIMENT_COLOR: Record<Sentiment, string> = { Positive: '#1E9E6A', Neutral: '#8A8A8A', Negative: '#D2603F' };
 
-// Mirrors app/services/scoring.py's compute_visibility_score exactly, so we
-// can tell whether the persona's vis score is explained by its own
-// rank+sentiment (single-prompt personas, or ones where every prompt agreed)
-// or is an average across multiple prompts asked for that persona — the
-// backend only returns one representative rank/sentiment/quote per persona,
-// not a breakdown per prompt, so the average case can't be reconstructed
-// exactly and has to be described as an average rather than faked as a formula.
-const RANK_STEP = 20;
-const SENTIMENT_MULTIPLIER: Record<Sentiment, number> = { Positive: 1.0, Neutral: 0.7, Negative: 0.35 };
-
-function rankScore(rank: number): number {
-  return Math.max(0, 100 - (rank - 1) * RANK_STEP);
-}
-
+// Explains a persona's score by how often it named the brand rather than by a
+// single position: the persona's rank is its best answer's, so a persona named
+// once, negatively, in 9 answers still read "#1" next to a visibility of 4.
 function visibilityBreakdown(r: PersonaResult): string {
-  if (!r.mentioned || r.rank === null) {
-    return 'Not mentioned in the response — score is 0.';
+  const answers: { mentioned: boolean }[] = r.exchanges.flatMap(ex => ex.samples ?? [{ mentioned: ex.mentioned }]);
+  const named = answers.filter(a => a.mentioned).length;
+  if (named === 0) {
+    return `Not named in any of its ${answers.length} answers, so the score is 0.`;
   }
-  const base = rankScore(r.rank);
-  const multiplier = SENTIMENT_MULTIPLIER[r.sentiment];
-  const computed = Math.max(0, Math.min(100, Math.round(base * multiplier)));
-  const position = `Mentioned at position ${r.rank}`;
-  if (computed === r.vis) {
-    return `${position} · ${r.sentiment} sentiment (${base} rank points × ${multiplier} for ${r.sentiment.toLowerCase()} = ${computed}).`;
-  }
-  return `${position} in its representative prompt · ${r.sentiment} sentiment — this persona was asked more than once, so ${r.vis} is the average visibility across all of its prompts, not just this one.`;
+  return `Named in ${named} of its ${answers.length} answers. The score averages every answer's visibility (position × sentiment); answers that don't name you count as 0.`;
 }
 
 // Same 3-color semantic palette already used for sentiment elsewhere in this
@@ -100,15 +84,15 @@ function PersonaVisibilityTable({ personas, results }: { personas: Persona[]; re
 
       <div className="overflow-x-auto">
         <div className="min-w-[560px]">
-          <div className="grid grid-cols-[1.3fr_2fr_0.8fr_1fr] gap-3 pb-2.5 border-b border-[#F0F0F0] text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase">
-            <span>Persona</span><span>Visibility</span><span>Position</span><span>Opportunity</span>
+          <div className="grid grid-cols-[1.3fr_2fr_1fr] gap-3 pb-2.5 border-b border-[#F0F0F0] text-[11px] text-[#9A9A9A] font-bold tracking-[0.05em] uppercase">
+            <span>Persona</span><span>Visibility</span><span>Opportunity</span>
           </div>
           {selected.map(p => {
             const r = results[p.id];
             const vis = r?.vis ?? 0;
             const color = visibilityTierColor(vis);
             return (
-              <div key={p.id} className="grid grid-cols-[1.3fr_2fr_0.8fr_1fr] gap-3 py-3.5 border-b border-[#F6F6F6] items-center">
+              <div key={p.id} className="grid grid-cols-[1.3fr_2fr_1fr] gap-3 py-3.5 border-b border-[#F6F6F6] items-center">
                 <span className="text-[14px] font-semibold text-[#1b1b1b]">{p.title}</span>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-2 bg-[#F2F2F2] rounded-full overflow-hidden">
@@ -116,7 +100,6 @@ function PersonaVisibilityTable({ personas, results }: { personas: Persona[]; re
                   </div>
                   <span className="text-[13.5px] font-bold w-7 text-right flex-shrink-0" style={{ color }}>{vis}</span>
                 </div>
-                <span className="text-[13.5px] text-[#555]">{r?.rank ? `#${r.rank}` : '—'}</span>
                 <div>{r && <PersonaOpportunityBadge opportunity={r.opportunity} />}</div>
               </div>
             );
