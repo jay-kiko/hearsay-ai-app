@@ -90,6 +90,9 @@ export async function getCategories(args: {
   competitors: Competitor[];
   buyerContext?: string;
   brandSummary?: string;
+  // The brand's other names: categories naming any of them are dropped.
+  brandMatchNames?: string[];
+  brandContextNames?: string[];
   accessCode: string;
 }): Promise<CategoryOption[]> {
   const res = await fetch(`${BASE}/api/categories`, {
@@ -101,6 +104,8 @@ export async function getCategories(args: {
       competitors: args.competitors,
       buyerContext: args.buyerContext,
       brandSummary: args.brandSummary,
+      brandMatchNames: args.brandMatchNames,
+      brandContextNames: args.brandContextNames,
       accessCode: args.accessCode,
     }),
   });
@@ -116,6 +121,9 @@ export async function generatePersonas(args: {
   buyerContext?: string;
   brandSummary?: string;
   market?: string;
+  // The brand's other names: taken out of persona text.
+  brandMatchNames?: string[];
+  brandContextNames?: string[];
   accessCode: string;
 }): Promise<GeneratedPersona[]> {
   const res = await fetch(`${BASE}/api/generate-personas`, {
@@ -128,6 +136,8 @@ export async function generatePersonas(args: {
       buyerContext: args.buyerContext,
       brandSummary: args.brandSummary,
       market: args.market,
+      brandMatchNames: args.brandMatchNames,
+      brandContextNames: args.brandContextNames,
       accessCode: args.accessCode,
     }),
   });

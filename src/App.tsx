@@ -326,12 +326,15 @@ export default function App() {
     setCategoriesError(null);
     setCategoryBuyerContextOverride(null);
     try {
+      const { brandMatchNames, brandContextNames } = brandNameFields(state.brand, detectedNames);
       const result = await getCategories({
         brand: state.brand,
         industry: state.industry,
         competitors: state.competitors,
         buyerContext: state.buyerContext,
         brandSummary: state.brandSummary,
+        brandMatchNames,
+        brandContextNames,
         accessCode,
       });
       setCategories(result);
@@ -344,7 +347,7 @@ export default function App() {
     } finally {
       setCategoriesLoading(false);
     }
-  }, [state.brand, state.industry, state.competitors, state.buyerContext, state.brandSummary, accessCode, lockOut, update]);
+  }, [state.brand, detectedNames, state.industry, state.competitors, state.buyerContext, state.brandSummary, accessCode, lockOut, update]);
 
   const goToPersonas = useCallback(async () => {
     update({ step: 3 });
@@ -365,6 +368,7 @@ export default function App() {
     }, 250);
 
     try {
+      const { brandMatchNames, brandContextNames } = brandNameFields(state.brand, detectedNames);
       const generated = await generatePersonas({
         brand: state.brand,
         industry: state.industry,
@@ -372,6 +376,8 @@ export default function App() {
         buyerContext: categoryBuyerContextOverride ?? state.buyerContext,
         brandSummary: state.brandSummary,
         market: state.market,
+        brandMatchNames,
+        brandContextNames,
         accessCode,
       });
       update({ personas: generated.map(p => ({ ...p, selected: true, expanded: false })) });
@@ -386,7 +392,7 @@ export default function App() {
       personasTimerRef.current = null;
       setPersonasLoading(false);
     }
-  }, [state.brand, state.industry, state.competitors, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
+  }, [state.brand, detectedNames, state.industry, state.competitors, state.buyerContext, state.brandSummary, state.market, categoryBuyerContextOverride, accessCode, update, lockOut]);
 
   const goToPrompts = useCallback(async () => {
     update({ step: 5 });
