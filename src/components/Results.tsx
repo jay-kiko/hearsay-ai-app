@@ -131,6 +131,20 @@ function PersonaVisibilityTable({ personas, results }: { personas: Persona[]; re
   );
 }
 
+export const NOT_LISTED = 'Brands not on your list';
+
+// Your brand and listed competitors as themselves, every brand the answers
+// named that isn't on the list as one entry: they count toward share, but
+// shown one by one beside the chosen competitors they read as competitors.
+export function groupUnlisted(products: Product[]): Product[] {
+  const listed = products.filter(p => p.listed !== false);
+  const others = products.filter(p => p.listed === false);
+  const count = others.reduce((s, p) => s + p.count, 0);
+  if (!count) return listed;
+  return [...listed, { name: NOT_LISTED, count, share: others.reduce((s, p) => s + p.share, 0), listed: false }]
+    .sort((a, b) => b.count - a.count);
+}
+
 // The brand plus the most-named others, so the brand is never pushed out by
 // unlisted names; the rest are grouped.
 export function topProducts(products: Product[], n: number, grouped = true): Product[] {
@@ -149,7 +163,7 @@ export function topProducts(products: Product[], n: number, grouped = true): Pro
 }
 
 function CompetitorBarChart({ products }: { products: Product[] }) {
-  const data = topProducts(products, 5, false);
+  const data = topProducts(groupUnlisted(products), 6, false);
   const W = 560, H = 250, padT = 26, padB = 44, x0 = 26;
   const max = Math.max(1, ...data.map(d => d.count));
   const innerW = W - x0 - 20, bw = 60, gap = data.length > 1 ? (innerW - data.length * bw) / (data.length - 1) : 0, chartH = H - padT - padB;
@@ -183,7 +197,7 @@ function CompetitorBarChart({ products }: { products: Product[] }) {
 function ShareOfVoiceChart({ products }: { products: Product[] }) {
   const grays = ['#D7DEE9', '#C7D0DE', '#B7C2D3', '#A7B4C8', '#97A6BD'];
   let gi = 0;
-  const colored = topProducts(products, 7).map(d => ({ ...d, color: d.isBrand ? ACCENT : grays[gi++ % grays.length] }));
+  const colored = groupUnlisted(products).map(d => ({ ...d, color: d.isBrand ? ACCENT : grays[gi++ % grays.length] }));
   const S = 200, c = S / 2, r = 78, rw = 26;
   let acc = -90;
   const brandShare = colored.find(d => d.isBrand)?.share ?? 0;
@@ -218,20 +232,39 @@ function ShareOfVoiceChart({ products }: { products: Product[] }) {
   );
 }
 
+function ProductRow({ p, max }: { p: Product; max: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-[44%] max-w-[230px] text-[13.5px] text-[#333] truncate flex-shrink-0" style={{ fontWeight: p.isBrand ? 700 : 500 }} title={p.name}>
+        {p.name}
+      </div>
+      <div className="flex-1 h-[9px] bg-[#F2F2F2] rounded-full overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${max ? (100 * p.count) / max : 0}%`, background: p.listed === false ? '#B7C2D3' : ACCENT }} />
+      </div>
+      <div className="w-[26px] text-right text-[13px] font-bold text-[#555] tabular-nums">{p.count}</div>
+    </div>
+  );
+}
+
+// Your brand and listed competitors, then the other brands the answers named
+// tucked under a toggle. All bars share one scale: the most-named brand.
 function ProductsMentioned({ products }: { products: Product[] }) {
+  const listed = products.filter(p => p.listed !== false);
+  const others = products.filter(p => p.listed === false && p.count > 0);
+  const max = Math.max(0, ...products.map(p => p.count));
   return (
     <div className="flex flex-col gap-2.5">
-      {products.map(p => (
-        <div key={p.name} className="flex items-center gap-3">
-          <div className="w-[120px] text-[13.5px] text-[#333] whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0" style={{ fontWeight: p.isBrand ? 700 : 500 }} title={p.listed === false ? `${p.name}: not on your competitor list` : p.name}>
-            {p.name}{p.listed === false && <span className="text-[11px] text-[#AAA] font-normal"> · not on your list</span>}
+      {listed.map(p => <ProductRow key={p.name} p={p} max={max} />)}
+      {others.length > 0 && (
+        <details className="mt-1 group">
+          <summary className="cursor-pointer text-[13px] font-semibold text-[#888] hover:text-[#555] list-none">
+            <span className="group-open:hidden">▸</span><span className="hidden group-open:inline">▾</span> Other brands the answers named ({others.length})
+          </summary>
+          <div className="flex flex-col gap-2.5 mt-2.5">
+            {others.map(p => <ProductRow key={p.name} p={p} max={max} />)}
           </div>
-          <div className="flex-1 h-[9px] bg-[#F2F2F2] rounded-full overflow-hidden">
-            <div className="h-full rounded-full" style={{ width: `${p.share}%`, background: ACCENT }} />
-          </div>
-          <div className="w-[22px] text-right text-[13px] font-bold text-[#555]">{p.count}</div>
-        </div>
-      ))}
+        </details>
+      )}
     </div>
   );
 }

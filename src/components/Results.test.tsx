@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Results, topProducts } from './Results';
+import { NOT_LISTED, Results, groupUnlisted, topProducts } from './Results';
 import type { Persona, PersonaResult, Product, Overview, Sources, ScoreComponent, CompetitorDiagnosis, Opportunity, RadarCategory } from '../types';
 
 const PERSONA: Persona = {
@@ -327,4 +327,32 @@ it('counts personas as personas, not prompts', () => {
   const twoPrompts = { ...RESULT, exchanges: [RESULT.exchanges[0], RESULT.exchanges[0]] };
   render(<Results {...baseProps({ results: { p1: twoPrompts }, overview: { ...OVERVIEW, total: 6 } })} />);
   expect(screen.getByText('personas analyzed').previousSibling?.textContent).toBe('1');
+});
+
+
+describe('brands not on the competitor list', () => {
+  const products: Product[] = [
+    { name: 'Acme', count: 18, share: 22, isBrand: true },
+    { name: 'Rival Co', count: 18, share: 22 },
+    { name: 'CapCut', count: 10, share: 12, listed: false },
+    { name: 'Canva', count: 7, share: 9, listed: false },
+    { name: 'Unmentioned Rival', count: 0, share: 0 },
+  ];
+
+  it('groups them into one entry for the share charts', () => {
+    const grouped = groupUnlisted(products);
+    expect(grouped.map(p => p.name)).toEqual(['Acme', 'Rival Co', NOT_LISTED, 'Unmentioned Rival']);
+    expect(grouped.find(p => p.name === NOT_LISTED)?.count).toBe(17);
+    expect(groupUnlisted(products.filter(p => p.listed !== false)).map(p => p.name)).not.toContain(NOT_LISTED);
+  });
+
+  it('lists them under a collapsed section, after your brand and competitors', () => {
+    const { container } = render(<Results {...baseProps({ products })} />);
+    const details = container.querySelector('details');
+    expect(details).not.toBeNull();
+    expect(details?.open).toBe(false);
+    expect(details?.textContent).toContain('Other brands the answers named (2)');
+    expect(details?.textContent).toContain('CapCut');
+    expect(details?.textContent).not.toContain('Rival Co');
+  });
 });
