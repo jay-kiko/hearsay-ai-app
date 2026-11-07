@@ -725,6 +725,7 @@ export default function App() {
           products={analysisResult.products}
           sources={analysisResult.sources}
           scoreBreakdown={analysisResult.scoreBreakdown}
+          headline={analysisResult.headline}
           competitorDiagnosis={analysisResult.competitorDiagnosis}
           opportunities={analysisResult.opportunities}
           radar={analysisResult.radar}

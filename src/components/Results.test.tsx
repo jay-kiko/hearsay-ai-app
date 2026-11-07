@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Results } from './Results';
 import { NOT_LISTED, groupUnlisted, topProducts } from '../products';
 import type { Persona, PersonaResult, Product, Overview, Sources, ScoreComponent, CompetitorDiagnosis, Opportunity, RadarCategory } from '../types';
@@ -355,5 +355,49 @@ describe('brands not on the competitor list', () => {
     expect(details?.textContent).toContain('Other brands the answers named (2)');
     expect(details?.textContent).toContain('CapCut');
     expect(details?.textContent).not.toContain('Rival Co');
+  });
+});
+
+
+describe('how each score is calculated', () => {
+  const sentiment: ScoreComponent = {
+    name: 'Sentiment', score: 67, note: '26 positive · 6 neutral · 11 negative',
+    details: {
+      measures: 'How positively the answers that name you talk about you.',
+      calculation: ['(26 × 100 + 6 × 50 + 11 × 0) ÷ 43 = 67'],
+      rowsTitle: 'Answers naming you',
+      rows: [{ label: 'Positive', value: '26 answers' }, { label: 'Negative', value: '11 answers' }],
+    },
+  };
+  const headline = {
+    score: 74,
+    rows: [{ name: 'Sentiment', score: 67, weight: 0.1, factor: 0.8, points: 5.36 }],
+    notes: ['Ranking and Sentiment count in proportion to Presence.'],
+  };
+
+  it('opens a score to show its working and what it adds to the Visibility Score', () => {
+    render(<Results {...baseProps({ scoreBreakdown: [sentiment], headline })} />);
+    expect(screen.queryByText('(26 × 100 + 6 × 50 + 11 × 0) ÷ 43 = 67')).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: /Sentiment/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('(26 × 100 + 6 × 50 + 11 × 0) ÷ 43 = 67')).toBeInTheDocument();
+    expect(screen.getByText('11 answers')).toBeInTheDocument();
+    expect(screen.getByText('5.4 points')).toBeInTheDocument();
+  });
+
+  it('shows how the Visibility Score adds up', () => {
+    render(<Results {...baseProps({ scoreBreakdown: [sentiment], headline })} />);
+    fireEvent.click(screen.getByRole('button', { name: /How your Visibility Score of 74 is calculated/ }));
+    expect(screen.getByText('Ranking and Sentiment count in proportion to Presence.')).toBeInTheDocument();
+    expect(screen.getByText('5.4')).toBeInTheDocument();
+  });
+
+  it('renders older reports without the working as before', () => {
+    render(<Results {...baseProps({ scoreBreakdown: SCORE_BREAKDOWN })} />);
+    expect(screen.queryByText(/How it's calculated/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/How your Visibility Score/)).not.toBeInTheDocument();
+    expect(screen.getByText('Mentioned in 1 of 1 queries')).toBeInTheDocument();
   });
 });

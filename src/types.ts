@@ -183,10 +183,27 @@ export interface Sources {
   coverageNote?: string | null;
 }
 
+// How a score was worked out, from the same numbers the API scored with.
+export interface ScoreDetail {
+  measures: string;
+  calculation: string[];
+  rowsTitle: string;
+  rows: { label: string; value: string }[];
+}
+
 export interface ScoreComponent {
   name: string;
   score: number;
   note: string;
+  // Absent in reports saved before the working was sent.
+  details?: ScoreDetail | null;
+}
+
+// The Visibility Score as the sum of its parts.
+export interface HeadlineBreakdown {
+  score: number;
+  rows: { name: string; score: number; weight: number; factor: number; points: number }[];
+  notes: string[];
 }
 
 export interface CompetitorDiagnosis {
@@ -221,6 +238,7 @@ export interface AnalysisResult {
   competitorDiagnosis: CompetitorDiagnosis;
   opportunities: Opportunity[];
   radar: RadarCategory[];
+  headline?: HeadlineBreakdown | null;
 }
 
 export interface DetectResult {

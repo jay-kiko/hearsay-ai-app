@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Competitor, CompetitorDiagnosis, Opportunity, Persona, PersonaOpportunity, PersonaResult, Product, Overview, RadarCategory, ScoreComponent, Sources, SourceIntel, SourceQuery, Sentiment } from '../types';
+import type { Competitor, CompetitorDiagnosis, HeadlineBreakdown, Opportunity, Persona, PersonaOpportunity, PersonaResult, Product, Overview, RadarCategory, ScoreComponent, ScoreDetail, Sources, SourceIntel, SourceQuery, Sentiment } from '../types';
 import { groupUnlisted, topProducts } from '../products';
 import { buildReportCsv, downloadCsv } from '../csv';
 
@@ -13,6 +13,7 @@ interface ResultsProps {
   products: Product[];
   sources: Sources;
   scoreBreakdown: ScoreComponent[];
+  headline?: HeadlineBreakdown | null;
   competitorDiagnosis: CompetitorDiagnosis;
   opportunities: Opportunity[];
   radar: RadarCategory[];
@@ -306,24 +307,144 @@ function PersonaOpportunityBadge({ opportunity }: { opportunity: PersonaOpportun
   return <span className="text-[11.5px] font-semibold rounded-full px-[11px] py-1 whitespace-nowrap" style={{ color: style.color, background: style.bg }}>{opportunity}</span>;
 }
 
-function ScoreBreakdownSection({ items }: { items: ScoreComponent[] }) {
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+
+// Shared look for "How it's calculated" panels.
+function Working({ details, contribution }: { details: ScoreDetail; contribution: React.ReactNode }) {
+  return (
+    <div className="mt-3 rounded-[12px] bg-[#F7F8FA] px-4 py-3.5 flex flex-col gap-3 text-[13px] text-[#555] leading-relaxed">
+      <p className="m-0">{details.measures}</p>
+      {details.calculation.length > 0 && (
+        <div className="flex flex-col gap-0.5 font-medium text-[#1b1b1b] tabular-nums">
+          {details.calculation.map((line, i) => <div key={i}>{line}</div>)}
+        </div>
+      )}
+      {details.rows.length > 0 && (
+        <div>
+          <div className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-[#999] mb-1.5">{details.rowsTitle}</div>
+          <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 m-0 tabular-nums">
+            {details.rows.map((r, i) => (
+              <div key={i} className="contents">
+                <dt className="truncate" title={r.label}>{r.label}</dt>
+                <dd className="m-0 text-right text-[#1b1b1b]">{r.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+      <p className="m-0 text-[12.5px] text-[#777]">{contribution}</p>
+    </div>
+  );
+}
+
+function contributionLine(item: ScoreComponent, headline?: HeadlineBreakdown | null): React.ReactNode {
+  const row = headline?.rows.find(r => r.name === item.name);
+  if (row) {
+    return (
+      <>In your Visibility Score: {row.score} × {pct(row.weight)}{row.factor !== 1 && <> × Presence {pct(row.factor)}</>} = <strong className="text-[#1b1b1b]">{row.points.toFixed(1)} points</strong></>
+    );
+  }
+  if (item.name === 'Recommendation Strength') {
+    return 'Not added to your Visibility Score: it combines position and tone, which Ranking and Sentiment already count.';
+  }
+  if (headline) return 'Left out of your Visibility Score this run: no source could be measured.';
+  return null;
+}
+
+function ScoreRow({ item, headline }: { item: ScoreComponent; headline?: HeadlineBreakdown | null }) {
+  const [open, setOpen] = useState(false);
+  const panelId = `score-${item.name.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+  const color = visibilityTierColor(item.score);
+  const summary = (
+    <>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[13.5px] font-semibold text-[#1b1b1b]">{item.name}</span>
+        <span className="text-[13.5px] font-bold" style={{ color }}>{item.score}/100</span>
+      </div>
+      <div className="h-2 bg-[#F2F2F2] rounded-full overflow-hidden mb-1.5">
+        <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, item.score))}%`, background: color }} />
+      </div>
+      <div className="text-[12.5px] text-[#888] leading-relaxed">{item.note}</div>
+    </>
+  );
+  if (!item.details) return <div>{summary}</div>;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="w-full text-left bg-transparent border-none p-0 cursor-pointer rounded-[6px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#2D6AE0]"
+      >
+        {summary}
+        <span className="inline-block mt-1 text-[12.5px] font-semibold text-[#2D6AE0] print:hidden">
+          {open ? '▾ Hide the calculation' : "▸ How it's calculated"}
+        </span>
+      </button>
+      {open && <div id={panelId}><Working details={item.details} contribution={contributionLine(item, headline)} /></div>}
+    </div>
+  );
+}
+
+function HeadlineWorking({ headline }: { headline: HeadlineBreakdown }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-[18px]">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls="score-headline"
+        className="bg-transparent border-none p-0 cursor-pointer text-[13px] font-semibold text-[#2D6AE0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D6AE0] rounded-[4px]"
+      >
+        {open ? '▾' : '▸'} How your Visibility Score of {headline.score} is calculated
+      </button>
+      {open && (
+        <div id="score-headline" className="mt-3 rounded-[12px] bg-[#F7F8FA] px-4 py-3.5 text-[13px] text-[#555]">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse tabular-nums">
+              <thead>
+                <tr className="text-[11.5px] uppercase tracking-[0.04em] text-[#999]">
+                  <th className="text-left font-semibold pb-1.5">Score</th>
+                  <th className="text-left font-semibold pb-1.5">Calculation</th>
+                  <th className="text-right font-semibold pb-1.5">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {headline.rows.map(r => (
+                  <tr key={r.name} className="border-t border-[#E6E9EE]">
+                    <td className="py-1.5 pr-3 text-[#1b1b1b]">{r.name}</td>
+                    <td className="py-1.5 pr-3">{r.score} × {pct(r.weight)}{r.factor !== 1 && <> × Presence {pct(r.factor)}</>}</td>
+                    <td className="py-1.5 text-right text-[#1b1b1b]">{r.points.toFixed(1)}</td>
+                  </tr>
+                ))}
+                <tr className="border-t border-[#C9CFD8] font-semibold text-[#1b1b1b]">
+                  <td className="pt-2" colSpan={2}>Visibility Score</td>
+                  <td className="pt-2 text-right">{headline.score}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {headline.notes.length > 0 && (
+            <ul className="mt-3 mb-0 pl-4 flex flex-col gap-1 text-[12.5px] text-[#777]">
+              {headline.notes.map((n, i) => <li key={i}>{n}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoreBreakdownSection({ items, headline }: { items: ScoreComponent[]; headline?: HeadlineBreakdown | null }) {
   return (
     <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 mb-4 break-inside-avoid">
       <div className="text-[15px] font-semibold mb-1">Score breakdown</div>
-      <div className="text-[13px] text-[#999] mb-[18px]">What's driving your overall Visibility Score</div>
+      <div className="text-[13px] text-[#999] mb-[14px]">What's driving your overall Visibility Score. Open any score to see how it's worked out from this report.</div>
+      {headline && <HeadlineWorking headline={headline} />}
       <div className="flex flex-col gap-4">
-        {items.map(item => (
-          <div key={item.name}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[13.5px] font-semibold text-[#1b1b1b]">{item.name}</span>
-              <span className="text-[13.5px] font-bold" style={{ color: visibilityTierColor(item.score) }}>{item.score}/100</span>
-            </div>
-            <div className="h-2 bg-[#F2F2F2] rounded-full overflow-hidden mb-1.5">
-              <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, item.score))}%`, background: visibilityTierColor(item.score) }} />
-            </div>
-            <div className="text-[12.5px] text-[#888] leading-relaxed">{item.note}</div>
-          </div>
-        ))}
+        {items.map(item => <ScoreRow key={item.name} item={item} headline={headline} />)}
       </div>
     </div>
   );
@@ -657,7 +778,7 @@ function TabPanel({ active, children }: { active: boolean; children: React.React
   return <div className={active ? '' : 'hidden print:block'}>{children}</div>;
 }
 
-export function Results({ brand, industry, personas, results, overview, products, sources, scoreBreakdown, competitorDiagnosis, opportunities, radar, onGoHome }: ResultsProps) {
+export function Results({ brand, industry, personas, results, overview, products, sources, scoreBreakdown, headline, competitorDiagnosis, opportunities, radar, onGoHome }: ResultsProps) {
   const selected = personas.filter(p => p.selected);
   const [openResult, setOpenResult] = useState<string | null>(selected[0]?.id ?? null);
   const [tab, setTab] = useState<TabId>('overview');
@@ -783,7 +904,7 @@ export function Results({ brand, industry, personas, results, overview, products
           </div>
         </div>
 
-        <ScoreBreakdownSection items={scoreBreakdown} />
+        <ScoreBreakdownSection items={scoreBreakdown} headline={headline} />
       </TabPanel>
 
       {/* Persona */}
