@@ -334,89 +334,91 @@ function contributionLine(item: ScoreComponent, headline?: HeadlineBreakdown | n
   return null;
 }
 
-function ScoreRow({ item, headline }: { item: ScoreComponent; headline?: HeadlineBreakdown | null }) {
+// A score that opens to show its working: the whole card is the control and a
+// chevron says there's more, the same pattern as the persona cards below.
+function ExpandableCard({ id, summary, children }: { id: string; summary: React.ReactNode; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const panelId = `score-${item.name.toLowerCase().replace(/[^a-z]+/g, '-')}`;
-  const color = visibilityTierColor(item.score);
-  const summary = (
-    <>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[13.5px] font-semibold text-[#1b1b1b]">{item.name}</span>
-        <span className="text-[13.5px] font-bold" style={{ color }}>{item.score}/100</span>
-      </div>
-      <div className="h-2 bg-[#F2F2F2] rounded-full overflow-hidden mb-1.5">
-        <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, item.score))}%`, background: color }} />
-      </div>
-      <div className="text-[12.5px] text-[#888] leading-relaxed">{item.note}</div>
-    </>
-  );
-  if (!item.details) return <div>{summary}</div>;
   return (
-    <div>
+    <div className={`border rounded-[12px] transition-colors ${open ? 'border-[#DCE3F0] bg-[#FCFDFF]' : 'border-[#F0F0F0] hover:border-[#DCE3F0] hover:bg-[#FCFDFF]'}`}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        aria-controls={panelId}
-        className="w-full text-left bg-transparent border-none p-0 cursor-pointer rounded-[6px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#2D6AE0]"
+        aria-controls={id}
+        className="w-full flex items-start gap-3 text-left bg-transparent border-none px-4 py-3.5 cursor-pointer rounded-[12px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D6AE0]"
       >
-        {summary}
-        <span className="inline-block mt-1 text-[12.5px] font-semibold text-[#2D6AE0] print:hidden">
-          {open ? '▾ Hide the calculation' : "▸ How it's calculated"}
-        </span>
+        <div className="flex-1 min-w-0">{summary}</div>
+        <span aria-hidden="true" className={`text-[#999] text-[11px] mt-[3px] transition-transform print:hidden ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
-      {open && <div id={panelId}><Working details={item.details} contribution={contributionLine(item, headline)} /></div>}
+      {open && <div id={id} className="px-4 pb-4">{children}</div>}
     </div>
   );
 }
 
-function HeadlineWorking({ headline }: { headline: HeadlineBreakdown }) {
-  const [open, setOpen] = useState(false);
+function ScoreSummary({ name, score, note }: { name: string; score: number; note: React.ReactNode }) {
+  const color = visibilityTierColor(score);
   return (
-    <div className="mb-[18px]">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        aria-controls="score-headline"
-        className="bg-transparent border-none p-0 cursor-pointer text-[13px] font-semibold text-[#2D6AE0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D6AE0] rounded-[4px]"
-      >
-        {open ? '▾' : '▸'} How your Visibility Score of {headline.score} is calculated
-      </button>
-      {open && (
-        <div id="score-headline" className="mt-3 rounded-[12px] bg-[#F7F8FA] px-4 py-3.5 text-[13px] text-[#555]">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse tabular-nums">
-              <thead>
-                <tr className="text-[11.5px] uppercase tracking-[0.04em] text-[#999]">
-                  <th className="text-left font-semibold pb-1.5">Score</th>
-                  <th className="text-left font-semibold pb-1.5">Calculation</th>
-                  <th className="text-right font-semibold pb-1.5">Points</th>
+    <>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[13.5px] font-semibold text-[#1b1b1b]">{name}</span>
+        <span className="text-[13.5px] font-bold" style={{ color }}>{score}/100</span>
+      </div>
+      <div className="h-2 bg-[#F2F2F2] rounded-full overflow-hidden mb-1.5">
+        <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, score))}%`, background: color }} />
+      </div>
+      <div className="text-[12.5px] text-[#888] leading-relaxed">{note}</div>
+    </>
+  );
+}
+
+function ScoreRow({ item, headline }: { item: ScoreComponent; headline?: HeadlineBreakdown | null }) {
+  const summary = <ScoreSummary name={item.name} score={item.score} note={item.note} />;
+  if (!item.details) return <div className="px-4 py-3.5">{summary}</div>;
+  return (
+    <ExpandableCard id={`score-${item.name.toLowerCase().replace(/[^a-z]+/g, '-')}`} summary={summary}>
+      <Working details={item.details} contribution={contributionLine(item, headline)} />
+    </ExpandableCard>
+  );
+}
+
+function HeadlineWorking({ headline }: { headline: HeadlineBreakdown }) {
+  return (
+    <ExpandableCard
+      id="score-headline"
+      summary={<ScoreSummary name="Visibility Score" score={headline.score} note="The scores below, weighted and added up" />}
+    >
+      <div className="mt-3 rounded-[12px] bg-[#F7F8FA] px-4 py-3.5 text-[13px] text-[#555]">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse tabular-nums">
+            <thead>
+              <tr className="text-[11.5px] uppercase tracking-[0.04em] text-[#999]">
+                <th className="text-left font-semibold pb-1.5">Score</th>
+                <th className="text-left font-semibold pb-1.5">Calculation</th>
+                <th className="text-right font-semibold pb-1.5">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {headline.rows.map(r => (
+                <tr key={r.name} className="border-t border-[#E6E9EE]">
+                  <td className="py-1.5 pr-3 text-[#1b1b1b]">{r.name}</td>
+                  <td className="py-1.5 pr-3">{r.score} × {pct(r.weight)}{r.factor !== 1 && <> × Presence {pct(r.factor)}</>}</td>
+                  <td className="py-1.5 text-right text-[#1b1b1b]">{r.points.toFixed(1)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {headline.rows.map(r => (
-                  <tr key={r.name} className="border-t border-[#E6E9EE]">
-                    <td className="py-1.5 pr-3 text-[#1b1b1b]">{r.name}</td>
-                    <td className="py-1.5 pr-3">{r.score} × {pct(r.weight)}{r.factor !== 1 && <> × Presence {pct(r.factor)}</>}</td>
-                    <td className="py-1.5 text-right text-[#1b1b1b]">{r.points.toFixed(1)}</td>
-                  </tr>
-                ))}
-                <tr className="border-t border-[#C9CFD8] font-semibold text-[#1b1b1b]">
-                  <td className="pt-2" colSpan={2}>Visibility Score</td>
-                  <td className="pt-2 text-right">{headline.score}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          {headline.notes.length > 0 && (
-            <ul className="mt-3 mb-0 pl-4 flex flex-col gap-1 text-[12.5px] text-[#777]">
-              {headline.notes.map((n, i) => <li key={i}>{n}</li>)}
-            </ul>
-          )}
+              ))}
+              <tr className="border-t border-[#C9CFD8] font-semibold text-[#1b1b1b]">
+                <td className="pt-2" colSpan={2}>Visibility Score</td>
+                <td className="pt-2 text-right">{headline.score}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      )}
-    </div>
+        {headline.notes.length > 0 && (
+          <ul className="mt-3 mb-0 pl-4 flex flex-col gap-1 text-[12.5px] text-[#777]">
+            {headline.notes.map((n, i) => <li key={i}>{n}</li>)}
+          </ul>
+        )}
+      </div>
+    </ExpandableCard>
   );
 }
 
@@ -425,8 +427,8 @@ function ScoreBreakdownSection({ items, headline }: { items: ScoreComponent[]; h
     <div className="bg-white border border-[#ECECEC] rounded-[16px] px-[26px] py-6 mb-4 break-inside-avoid">
       <div className="text-[15px] font-semibold mb-1">Score breakdown</div>
       <div className="text-[13px] text-[#999] mb-[14px]">What's driving your overall Visibility Score. Open any score to see how it's worked out from this report.</div>
-      {headline && <HeadlineWorking headline={headline} />}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2.5">
+        {headline && <HeadlineWorking headline={headline} />}
         {items.map(item => <ScoreRow key={item.name} item={item} headline={headline} />)}
       </div>
     </div>

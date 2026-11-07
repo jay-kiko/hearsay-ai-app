@@ -389,15 +389,17 @@ describe('how each score is calculated', () => {
 
   it('shows how the Visibility Score adds up', () => {
     render(<Results {...baseProps({ scoreBreakdown: [sentiment], headline })} />);
-    fireEvent.click(screen.getByRole('button', { name: /How your Visibility Score of 74 is calculated/ }));
+    const toggle = screen.getByRole('button', { name: /Visibility Score.*74\/100/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
     expect(screen.getByText('Ranking and Sentiment count in proportion to Presence.')).toBeInTheDocument();
     expect(screen.getByText('5.4')).toBeInTheDocument();
   });
 
   it('renders older reports without the working as before', () => {
     render(<Results {...baseProps({ scoreBreakdown: SCORE_BREAKDOWN })} />);
-    expect(screen.queryByText(/How it's calculated/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/How your Visibility Score/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Presence/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/weighted and added up/)).not.toBeInTheDocument();
     expect(screen.getByText('Mentioned in 1 of 1 queries')).toBeInTheDocument();
   });
 });
