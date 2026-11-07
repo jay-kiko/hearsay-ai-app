@@ -945,9 +945,9 @@ export function Results({ brand, industry, personas, results, overview, products
                       ? <span className="text-[11.5px] font-semibold text-[#2D6AE0] bg-[#EEF3FE] rounded-full px-[11px] py-1 whitespace-nowrap">Mentioned</span>
                       : <span className="text-[11.5px] font-semibold text-[#A0A0A0] bg-[#F0F0F0] rounded-full px-[11px] py-1 whitespace-nowrap">Not mentioned</span>
                     }
-                    {r.sentiment === 'Positive' && <span className="text-[11.5px] font-semibold text-[#1E9E6A] bg-[#E8F6EF] rounded-full px-[11px] py-1">Positive</span>}
-                    {r.sentiment === 'Neutral' && <span className="text-[11.5px] font-semibold text-[#8A8A8A] bg-[#F0F0F0] rounded-full px-[11px] py-1">Neutral</span>}
-                    {r.sentiment === 'Negative' && <span className="text-[11.5px] font-semibold text-[#D2603F] bg-[#FBEDE8] rounded-full px-[11px] py-1">Negative</span>}
+                    {r.mentioned && r.sentiment === 'Positive' && <span className="text-[11.5px] font-semibold text-[#1E9E6A] bg-[#E8F6EF] rounded-full px-[11px] py-1">Positive</span>}
+                    {r.mentioned && r.sentiment === 'Neutral' && <span className="text-[11.5px] font-semibold text-[#8A8A8A] bg-[#F0F0F0] rounded-full px-[11px] py-1">Neutral</span>}
+                    {r.mentioned && r.sentiment === 'Negative' && <span className="text-[11.5px] font-semibold text-[#D2603F] bg-[#FBEDE8] rounded-full px-[11px] py-1">Negative</span>}
                     <PersonaOpportunityBadge opportunity={r.opportunity} />
                     <span className="text-[#999] text-sm print:hidden">{isOpen ? '▲' : '▼'}</span>
                   </div>
@@ -970,7 +970,7 @@ export function Results({ brand, industry, personas, results, overview, products
                               Named in {ex.samples.filter(s => s.mentioned).length} of {ex.samples.length} answers · Shown:{' '}
                             </span>
                           )}
-                          {ex.mentioned ? <span className="text-[#2D6AE0] font-semibold">Mentioned</span> : 'Not mentioned'} · {ex.sentiment} · Visibility {ex.vis}/100
+                          {ex.mentioned ? <><span className="text-[#2D6AE0] font-semibold">Mentioned</span> · {ex.sentiment}</> : 'Not mentioned'} · Visibility {ex.vis}/100
                         </div>
                       </div>
                       <div className="text-sm text-[#555] italic leading-[1.55] bg-[#FAFAFA] rounded-[10px] px-[15px] py-[13px] mt-2">"{ex.prompt}"</div>
