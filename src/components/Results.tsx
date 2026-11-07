@@ -528,7 +528,7 @@ function SourceIntelList({ sourceIntel, coverageNote, queries }: { sourceIntel: 
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {s.origin === 'vendor' && (
-                  <span title="Written by another business in this category, so its picks may favour itself (our estimate)" className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap text-[#6B5B95] bg-[#F1EEF8]">Vendor article</span>
+                  <span title="Written by a business near this category, such as an agency or service firm, so its picks may favour its own services (our estimate)" className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap text-[#6B5B95] bg-[#F1EEF8]">Vendor article</span>
                 )}
                 <span className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap" style={{ color: vis.color, background: vis.bg }}>{s.visibility}</span>
                 {gap && <span className="text-[11.5px] font-semibold rounded-full px-[10px] py-[3px] whitespace-nowrap" style={{ color: gap.color, background: gap.bg }}>{gap.text}</span>}
@@ -894,7 +894,7 @@ export function Results({ brand, industry, personas, results, overview, products
       {/* Sources */}
       <TabPanel active={tab === 'sources'}>
         <h3 className="text-[19px] font-bold tracking-[-0.01em] mb-1 break-after-avoid">Source Intelligence</h3>
-        <div className="text-[13px] text-[#999] mb-[18px]">Third-party pages your buyers' own questions turn up (searched without your brand name), and whether you and your rivals are named on each. Pages written by another business in your category are tagged "Vendor article". Expand a row for detail.</div>
+        <div className="text-[13px] text-[#999] mb-[18px]">Third-party pages your buyers' own questions turn up (searched without your brand name), and whether you and your rivals are named on each. Pages written by a business near your category, such as an agency or service firm, are tagged "Vendor article"; competitors' own articles aren't shown. Expand a row for detail.</div>
         <SourceIntelList sourceIntel={sources.sourceIntel} coverageNote={sources.coverageNote} queries={sources.queries} />
       </TabPanel>
 
