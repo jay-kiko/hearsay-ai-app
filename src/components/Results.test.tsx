@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { NOT_LISTED, Results, groupUnlisted, topProducts } from './Results';
+import { Results } from './Results';
+import { NOT_LISTED, groupUnlisted, topProducts } from '../products';
 import type { Persona, PersonaResult, Product, Overview, Sources, ScoreComponent, CompetitorDiagnosis, Opportunity, RadarCategory } from '../types';
 
 const PERSONA: Persona = {
