@@ -25,7 +25,7 @@ export function CountryInput({ value, onChange }: { value: string; onChange: (v:
         value={draft}
         onChange={e => update(e.target.value)}
         onBlur={() => { const c = resolveCountry(draft); if (c) setDraft(c); }}
-        placeholder="Country, e.g. Kenya"
+        placeholder="Country, e.g. Singapore"
         className={`w-full border rounded-[11px] px-[14px] py-3 text-[14.5px] text-[#222] bg-white focus:outline-none transition-colors ${invalid ? 'border-[#C2543A]' : 'border-[#E2E2E2] focus:border-[#2D6AE0]'}`}
       />
       <datalist id="country-options">
